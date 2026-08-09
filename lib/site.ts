@@ -23,7 +23,7 @@ export const siteConfig = {
 export const navLinks = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
-  { href: "/services", label: "Services" },
+  { href: "/services", label: "Courses" },
   { href: "/booking", label: "Booking" },
   { href: "/contact", label: "Contact" },
 ];

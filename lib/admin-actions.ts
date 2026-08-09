@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { classTypes, sessions, bookings } from "@/db/schema";
+import { stripe } from "@/lib/stripe";
 
 async function requireAdmin() {
   const { userId } = await auth();
@@ -68,6 +69,31 @@ export async function duplicateSessionAction(formData: FormData) {
 export async function cancelSessionAction(formData: FormData) {
   await requireAdmin();
   const sessionId = Number(formData.get("sessionId"));
+
+  const affectedBookings = await db.query.bookings.findMany({
+    where: eq(bookings.sessionId, sessionId),
+  });
+
+  for (const booking of affectedBookings) {
+    if (booking.status === "confirmed" && booking.stripePaymentIntentId) {
+      try {
+        await stripe.refunds.create({ payment_intent: booking.stripePaymentIntentId });
+      } catch (err) {
+        console.error(`Refund failed for booking ${booking.id}:`, err);
+        continue;
+      }
+      await db.update(bookings).set({ status: "cancelled" }).where(eq(bookings.id, booking.id));
+    } else if (booking.status === "pending") {
+      if (booking.stripeCheckoutSessionId) {
+        try {
+          await stripe.checkout.sessions.expire(booking.stripeCheckoutSessionId);
+        } catch {
+          // Already expired/completed on Stripe's side — safe to ignore.
+        }
+      }
+      await db.update(bookings).set({ status: "cancelled" }).where(eq(bookings.id, booking.id));
+    }
+  }
 
   await db.update(sessions).set({ status: "cancelled" }).where(eq(sessions.id, sessionId));
 

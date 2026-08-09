@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
 import { db } from "@/db";
-import { bookings } from "@/db/schema";
+import { bookings, sessions, classTypes } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
+import { sendBookingConfirmationEmail, sendAdminBookingAlert } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,29 @@ async function handleCheckoutCompleted(checkoutSession: Stripe.Checkout.Session)
       confirmedAt: new Date(),
     })
     .where(eq(bookings.id, bookingId));
+
+  try {
+    const session = await db.query.sessions.findFirst({ where: eq(sessions.id, booking.sessionId) });
+    const classType = session
+      ? await db.query.classTypes.findFirst({ where: eq(classTypes.id, session.classTypeId) })
+      : null;
+
+    if (session && classType) {
+      const emailDetails = {
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        className: classType.name,
+        startsAt: session.startsAt,
+        location: session.location,
+        seats: booking.seats,
+        amountPaidCents: checkoutSession.amount_total ?? null,
+        currency: classType.currency,
+      };
+      await Promise.all([sendBookingConfirmationEmail(emailDetails), sendAdminBookingAlert(emailDetails)]);
+    }
+  } catch (err) {
+    console.error(`Booking ${bookingId} confirmed but email notification failed:`, err);
+  }
 }
 
 async function handleCheckoutExpired(checkoutSession: Stripe.Checkout.Session) {

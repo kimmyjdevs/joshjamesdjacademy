@@ -66,6 +66,17 @@ export function Footer() {
           <p>
             &copy; {new Date().getFullYear()} Josh James DJ Academy. ABN {siteConfig.abn}.
           </p>
+          <div className="flex items-center gap-4">
+            <Link href="/terms" className="transition-colors hover:text-blood">
+              Terms
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-blood">
+              Privacy
+            </Link>
+            <Link href="/refund-policy" className="transition-colors hover:text-blood">
+              Refunds
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
             <XMark className="h-3 w-3" color="red" />
             <span>Made with care in Brisbane.</span>

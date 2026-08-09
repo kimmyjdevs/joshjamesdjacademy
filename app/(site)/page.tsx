@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { ShimmerButton } from "@/components/magicui/shimmer-button";
-import { Marquee } from "@/components/magicui/marquee";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { XMark } from "@/components/x-mark";
 import { siteConfig } from "@/lib/site";
@@ -40,25 +39,6 @@ const curriculum = [
   "EQ & Frequency Mixing",
   "Transitions & Effects",
   "Reading the Room & Energy",
-];
-
-const testimonials = [
-  {
-    quote: "Six weeks ago I didn't know what gain meant. Now I've played my first paid set. Josh doesn't sugarcoat it — he just gets you there.",
-    name: "Callum R.",
-  },
-  {
-    quote: "I'd been mixing at home for two years and had no idea how bad my transitions actually were. This course fixed things I didn't know were broken.",
-    name: "Priya N.",
-  },
-  {
-    quote: "Straight-up, no-fluff teaching. Josh explains the why behind everything, not just which button to press.",
-    name: "Tane W.",
-  },
-  {
-    quote: "Best money I've spent on this hobby. Left the first class already mixing cleaner than I had in a year of YouTube tutorials.",
-    name: "Ruby C.",
-  },
 ];
 
 export default function HomePage() {
@@ -134,28 +114,6 @@ export default function HomePage() {
               </BlurFade>
             ))}
           </ul>
-        </div>
-      </section>
-
-      <section className="py-20 md:py-28">
-        <div className="container-x">
-          <p className="mb-3 text-center font-display text-sm uppercase tracking-widest text-blood">
-            From The Students
-          </p>
-          <h2 className="text-center text-3xl md:text-4xl">Don&apos;t take our word for it.</h2>
-        </div>
-
-        <div className="mt-12">
-          <Marquee>
-            {testimonials.map((t) => (
-              <div key={t.name} className="mx-4 w-80 shrink-0 border border-ink/10 bg-cloud p-6">
-                <p className="text-sm leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
-                <p className="mt-4 font-display text-xs uppercase tracking-wide text-blood">
-                  {t.name}
-                </p>
-              </div>
-            ))}
-          </Marquee>
         </div>
       </section>
 
