@@ -16,8 +16,6 @@ next-env.d.ts
 *.pem
 npm-debug.log*
 
-# drizzle
-drizzle/meta
 
 # vercel/netlify
 .vercel

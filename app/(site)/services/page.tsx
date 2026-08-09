@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { classTypes } from "@/db/schema";
 import { formatCents } from "@/lib/utils";
@@ -48,7 +48,11 @@ const modules = [
 
 export default async function ServicesPage() {
   const tiers = await db.query.classTypes.findMany({
-    where: eq(classTypes.isActive, true),
+    where: and(
+      eq(classTypes.isActive, true),
+      or(isNull(classTypes.availableFrom), lte(classTypes.availableFrom, new Date())),
+      or(isNull(classTypes.availableUntil), gte(classTypes.availableUntil, new Date())),
+    ),
     orderBy: asc(classTypes.sortOrder),
   });
 

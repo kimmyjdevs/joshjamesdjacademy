@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { classTypes, sessions } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
@@ -35,7 +35,15 @@ async function getBookableSessions(): Promise<BookableSession[]> {
     })
     .from(sessions)
     .innerJoin(classTypes, eq(sessions.classTypeId, classTypes.id))
-    .where(and(eq(sessions.status, "scheduled"), gte(sessions.startsAt, new Date())))
+    .where(
+      and(
+        eq(sessions.status, "scheduled"),
+        gte(sessions.startsAt, new Date()),
+        eq(classTypes.isActive, true),
+        or(isNull(classTypes.availableFrom), lte(classTypes.availableFrom, new Date())),
+        or(isNull(classTypes.availableUntil), gte(classTypes.availableUntil, new Date())),
+      ),
+    )
     .orderBy(asc(sessions.startsAt));
 
   const heldMap = await getSeatsRemainingForSessions(rows.map((r) => r.id));

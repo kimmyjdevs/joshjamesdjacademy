@@ -70,12 +70,23 @@ export async function cancelSessionAction(formData: FormData) {
   await requireAdmin();
   const sessionId = Number(formData.get("sessionId"));
 
+  const session = await db.query.sessions.findFirst({ where: eq(sessions.id, sessionId) });
+  const classType = session
+    ? await db.query.classTypes.findFirst({ where: eq(classTypes.id, session.classTypeId) })
+    : null;
+  const autoRefund = classType?.refundable ?? true;
+
   const affectedBookings = await db.query.bookings.findMany({
     where: eq(bookings.sessionId, sessionId),
   });
 
   for (const booking of affectedBookings) {
     if (booking.status === "confirmed" && booking.stripePaymentIntentId) {
+      if (!autoRefund) {
+        // Non-refundable class type: leave the booking "confirmed" so it still
+        // shows as a paid customer in the roster for Josh to handle manually.
+        continue;
+      }
       try {
         await stripe.refunds.create({ payment_intent: booking.stripePaymentIntentId });
       } catch (err) {
@@ -102,6 +113,11 @@ export async function cancelSessionAction(formData: FormData) {
   revalidatePath("/booking");
 }
 
+function parseOptionalDate(value: FormDataEntryValue | null): Date | null {
+  const str = String(value || "").trim();
+  return str ? new Date(str) : null;
+}
+
 export async function createClassTypeAction(formData: FormData) {
   await requireAdmin();
 
@@ -112,6 +128,9 @@ export async function createClassTypeAction(formData: FormData) {
   const durationMinutes = Number(formData.get("durationMinutes"));
   const priceCents = Math.round(Number(formData.get("price")) * 100);
   const maxSeatsDefault = Number(formData.get("maxSeatsDefault"));
+  const refundable = formData.get("refundable") === "on";
+  const availableFrom = parseOptionalDate(formData.get("availableFrom"));
+  const availableUntil = parseOptionalDate(formData.get("availableUntil"));
 
   await db.insert(classTypes).values({
     name,
@@ -122,6 +141,9 @@ export async function createClassTypeAction(formData: FormData) {
     priceCents,
     maxSeatsDefault,
     isActive: true,
+    refundable,
+    availableFrom,
+    availableUntil,
   });
 
   revalidatePath("/admin/class-types");
@@ -139,10 +161,24 @@ export async function updateClassTypeAction(formData: FormData) {
   const priceCents = Math.round(Number(formData.get("price")) * 100);
   const maxSeatsDefault = Number(formData.get("maxSeatsDefault"));
   const isActive = formData.get("isActive") === "on";
+  const refundable = formData.get("refundable") === "on";
+  const availableFrom = parseOptionalDate(formData.get("availableFrom"));
+  const availableUntil = parseOptionalDate(formData.get("availableUntil"));
 
   await db
     .update(classTypes)
-    .set({ name, description, level, durationMinutes, priceCents, maxSeatsDefault, isActive })
+    .set({
+      name,
+      description,
+      level,
+      durationMinutes,
+      priceCents,
+      maxSeatsDefault,
+      isActive,
+      refundable,
+      availableFrom,
+      availableUntil,
+    })
     .where(eq(classTypes.id, id));
 
   revalidatePath("/admin/class-types");

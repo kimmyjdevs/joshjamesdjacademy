@@ -20,6 +20,14 @@ export const classTypes = pgTable("class_types", {
   maxSeatsDefault: integer("max_seats_default").notNull().default(8),
   imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
+  // When false, cancelling a session for this class type does NOT trigger an
+  // automatic Stripe refund — Josh handles those cases manually (e.g. deposits,
+  // custom programs with a stated no-refund policy).
+  refundable: boolean("refundable").notNull().default(true),
+  // Optional booking window for seasonal/time-limited offerings (e.g. school
+  // holiday programs). Null means no restriction on that side of the window.
+  availableFrom: timestamp("available_from", { withTimezone: true }),
+  availableUntil: timestamp("available_until", { withTimezone: true }),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

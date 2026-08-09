@@ -53,8 +53,19 @@ export async function POST(req: NextRequest) {
     where: eq(classTypes.id, session.classTypeId),
   });
 
-  if (!classType) {
+  if (!classType || !classType.isActive) {
     return NextResponse.json({ error: "Class not found." }, { status: 404 });
+  }
+
+  const now = new Date();
+  if (
+    (classType.availableFrom && classType.availableFrom > now) ||
+    (classType.availableUntil && classType.availableUntil < now)
+  ) {
+    return NextResponse.json(
+      { error: "That class isn't currently open for booking." },
+      { status: 404 },
+    );
   }
 
   // Atomic hold: advisory-locks the session row for the duration of this

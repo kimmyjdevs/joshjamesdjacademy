@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { classTypes } from "@/db/schema";
 import { createClassTypeAction, updateClassTypeAction } from "@/lib/admin-actions";
 
+function toDateInputValue(date: Date | null) {
+  if (!date) return "";
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function AdminClassTypesPage() {
   const types = await db.query.classTypes.findMany({ orderBy: asc(classTypes.sortOrder) });
 
@@ -19,12 +24,18 @@ export default async function AdminClassTypesPage() {
             className="border border-ink/10 bg-paper p-6"
           >
             <input type="hidden" name="id" value={ct.id} />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <h2 className="font-display text-lg uppercase">{ct.name}</h2>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="isActive" defaultChecked={ct.isActive} />
-                Active
-              </label>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="isActive" defaultChecked={ct.isActive} />
+                  Active
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="refundable" defaultChecked={ct.refundable} />
+                  Fully refundable
+                </label>
+              </div>
             </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -71,7 +82,34 @@ export default async function AdminClassTypesPage() {
                   className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
                 />
               </div>
+              <div>
+                <label className="mb-2 block font-display text-xs uppercase tracking-wide">
+                  Bookable from (optional)
+                </label>
+                <input
+                  name="availableFrom"
+                  type="date"
+                  defaultValue={toDateInputValue(ct.availableFrom)}
+                  className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block font-display text-xs uppercase tracking-wide">
+                  Bookable until (optional)
+                </label>
+                <input
+                  name="availableUntil"
+                  type="date"
+                  defaultValue={toDateInputValue(ct.availableUntil)}
+                  className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
+                />
+              </div>
             </div>
+            <p className="mt-2 text-xs text-graphite">
+              Leave the dates blank for an always-on class. Set both for a seasonal offering (e.g. a school
+              holiday program) — it&apos;ll stop appearing on the booking page automatically once the end date
+              passes.
+            </p>
 
             <div className="mt-4">
               <label className="mb-2 block font-display text-xs uppercase tracking-wide">Description</label>
@@ -121,6 +159,20 @@ export default async function AdminClassTypesPage() {
           <div>
             <label className="mb-2 block font-display text-xs uppercase tracking-wide">Default max seats</label>
             <input name="maxSeatsDefault" type="number" required className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
+          </div>
+          <div>
+            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Bookable from (optional)</label>
+            <input name="availableFrom" type="date" className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
+          </div>
+          <div>
+            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Bookable until (optional)</label>
+            <input name="availableUntil" type="date" className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
+          </div>
+          <div className="flex items-center">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="refundable" defaultChecked />
+              Fully refundable
+            </label>
           </div>
           <div className="md:col-span-2">
             <label className="mb-2 block font-display text-xs uppercase tracking-wide">Description</label>

@@ -26,6 +26,9 @@ CREATE TABLE "class_types" (
 	"max_seats_default" integer DEFAULT 8 NOT NULL,
 	"image_url" text,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"refundable" boolean DEFAULT true NOT NULL,
+	"available_from" timestamp with time zone,
+	"available_until" timestamp with time zone,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "class_types_slug_unique" UNIQUE("slug")
