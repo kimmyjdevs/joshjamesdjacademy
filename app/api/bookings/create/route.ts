@@ -6,6 +6,7 @@ import { bookings, classTypes, sessions } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
 import { siteConfig } from "@/lib/site";
 import { STRIPE_SESSION_EXPIRY_MINUTES } from "@/lib/availability";
+import { isRateLimited } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   sessionId: z.number().int().positive(),
@@ -16,6 +17,15 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Slow down — try again in a minute." },
+      { status: 429 },
+    );
+  }
+
   const json = await req.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
 
