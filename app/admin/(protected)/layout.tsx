@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const links = [
+  { href: "/admin", label: "Dashboard" },
   { href: "/admin/sessions", label: "Sessions" },
   { href: "/admin/class-types", label: "Class Types" },
   { href: "/admin/bookings", label: "Bookings" },
