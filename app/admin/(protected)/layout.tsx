@@ -40,6 +40,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 {l.label}
               </Link>
             ))}
+            <Link
+              href="/"
+              className="whitespace-nowrap border-l border-paper/20 pl-6 text-sm text-paper/80 transition-colors hover:text-blood"
+            >
+              View Site
+            </Link>
             <UserButton afterSignOutUrl="/admin/login" />
           </nav>
         </div>

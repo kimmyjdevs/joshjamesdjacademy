@@ -76,6 +76,9 @@ export function Footer() {
             <Link href="/refund-policy" className="transition-colors hover:text-blood">
               Refunds
             </Link>
+            <Link href="/admin/login" className="transition-colors hover:text-blood">
+              Admin
+            </Link>
           </div>
           <div className="flex items-center gap-2">
             <XMark className="h-3 w-3" color="red" />
