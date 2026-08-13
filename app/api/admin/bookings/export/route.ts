@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { bookings } from "@/db/schema";
+import { isAllowedAdminEmail } from "@/lib/admin-auth";
 
 function csvEscape(value: string) {
   if (/[",\n]/.test(value)) {
@@ -13,7 +14,7 @@ function csvEscape(value: string) {
 
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
-  if (!userId) {
+  if (!userId || !(await isAllowedAdminEmail())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

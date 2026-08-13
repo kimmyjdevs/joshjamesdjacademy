@@ -1,5 +1,4 @@
-import { clerkMiddleware, clerkClient, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isProtectedAdminRoute = createRouteMatcher([
   "/admin",
@@ -10,23 +9,14 @@ const isProtectedAdminRoute = createRouteMatcher([
   "/api/admin(.*)",
 ]);
 
-const ADMIN_ALLOWED_EMAILS = new Set(
-  (process.env.ADMIN_ALLOWED_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean),
-);
-
+// Email-allowlist check happens in the (protected) layout and in each
+// /api/admin route directly — not here. This edge middleware runs as a
+// Netlify Edge Function (Deno, not Node), and clerkClient()'s backend API
+// call isn't reliable in that runtime; it took the whole admin area down
+// with 404s when tried here. auth.protect() alone is fine at the edge.
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedAdminRoute(req)) {
-    const { userId } = await auth.protect();
-
-    const user = await (await clerkClient()).users.getUser(userId);
-    const email = user.primaryEmailAddress?.emailAddress?.toLowerCase();
-
-    if (!email || !ADMIN_ALLOWED_EMAILS.has(email)) {
-      return NextResponse.redirect(new URL("/admin/not-authorized", req.url));
-    }
+    await auth.protect();
   }
 });
 

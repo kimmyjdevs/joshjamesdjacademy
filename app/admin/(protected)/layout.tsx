@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { isAllowedAdminEmail } from "@/lib/admin-auth";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -18,7 +20,11 @@ const links = [
   { href: "/admin/enquiries", label: "Enquiries" },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (!(await isAllowedAdminEmail())) {
+    redirect("/admin/not-authorized");
+  }
+
   return (
     <div className="min-h-screen bg-cloud">
       <div className="border-b border-ink/10 bg-ink text-paper">
