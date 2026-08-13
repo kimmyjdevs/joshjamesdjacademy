@@ -14,6 +14,12 @@ async function requireAdmin() {
   }
 }
 
+function roundToNearestQuarterHour(date: Date): Date {
+  const rounded = new Date(date);
+  rounded.setMinutes(Math.round(rounded.getMinutes() / 15) * 15, 0, 0);
+  return rounded;
+}
+
 export async function createSessionAction(formData: FormData) {
   await requireAdmin();
 
@@ -25,7 +31,7 @@ export async function createSessionAction(formData: FormData) {
   const notes = String(formData.get("notes") || "") || null;
   const durationMinutes = Number(formData.get("durationMinutes"));
 
-  const startsAt = new Date(`${date}T${time}:00`);
+  const startsAt = roundToNearestQuarterHour(new Date(`${date}T${time}:00`));
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
 
   await db.insert(sessions).values({

@@ -41,7 +41,7 @@ export default async function AdminSessionsPage() {
             ))}
           </SelectField>
           <TextField name="date" label="Date" type="date" required />
-          <TextField name="time" label="Time" type="time" required />
+          <TextField name="time" label="Time" type="time" step={900} required />
           <TextField name="durationMinutes" label="Duration (min)" type="number" defaultValue="120" required />
           <TextField name="maxSeats" label="Max seats" type="number" defaultValue="8" required />
           <TextField name="location" label="Location" defaultValue="Josh James DJ Academy Studio, Fortitude Valley, Brisbane QLD" required />
@@ -121,12 +121,14 @@ function TextField({
   type = "text",
   defaultValue,
   required,
+  step,
 }: {
   name: string;
   label: string;
   type?: string;
   defaultValue?: string;
   required?: boolean;
+  step?: number;
 }) {
   return (
     <div>
@@ -136,6 +138,7 @@ function TextField({
         type={type}
         defaultValue={defaultValue}
         required={required}
+        step={step}
         className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
       />
     </div>
