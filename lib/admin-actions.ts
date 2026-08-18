@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { classTypes, sessions, bookings } from "@/db/schema";
+import { classTypes, sessions, bookings, enquiries } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
 
 async function requireAdmin() {
@@ -190,6 +190,51 @@ export async function updateClassTypeAction(formData: FormData) {
   revalidatePath("/admin/class-types");
   revalidatePath("/services");
   revalidatePath("/booking");
+}
+
+export async function deleteSessionAction(formData: FormData) {
+  await requireAdmin();
+  const sessionId = Number(formData.get("sessionId"));
+
+  const existingBooking = await db.query.bookings.findFirst({ where: eq(bookings.sessionId, sessionId) });
+  if (existingBooking) {
+    // Has booking history (even cancelled/expired) — cancel instead of delete
+    // so records aren't lost and the foreign key stays intact.
+    return;
+  }
+
+  await db.delete(sessions).where(eq(sessions.id, sessionId));
+
+  revalidatePath("/admin/sessions");
+  revalidatePath("/booking");
+}
+
+export async function deleteClassTypeAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+
+  const existingSession = await db.query.sessions.findFirst({ where: eq(sessions.classTypeId, id) });
+  if (existingSession) {
+    // Sessions (and possibly bookings) depend on this class type — deactivate
+    // instead via the Active checkbox rather than deleting.
+    return;
+  }
+
+  await db.delete(classTypes).where(eq(classTypes.id, id));
+
+  revalidatePath("/admin/class-types");
+  revalidatePath("/services");
+  revalidatePath("/booking");
+}
+
+export async function deleteEnquiryAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+
+  await db.delete(enquiries).where(eq(enquiries.id, id));
+
+  revalidatePath("/admin/enquiries");
+  revalidatePath("/admin");
 }
 
 export async function getSessionRoster(sessionId: number) {

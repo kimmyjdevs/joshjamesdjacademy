@@ -1,7 +1,8 @@
-import { asc } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { classTypes } from "@/db/schema";
-import { createClassTypeAction, updateClassTypeAction } from "@/lib/admin-actions";
+import { classTypes, sessions } from "@/db/schema";
+import { createClassTypeAction, updateClassTypeAction, deleteClassTypeAction } from "@/lib/admin-actions";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 
 function toDateInputValue(date: Date | null) {
   if (!date) return "";
@@ -9,7 +10,14 @@ function toDateInputValue(date: Date | null) {
 }
 
 export default async function AdminClassTypesPage() {
-  const types = await db.query.classTypes.findMany({ orderBy: asc(classTypes.sortOrder) });
+  const [types, sessionCountRows] = await Promise.all([
+    db.query.classTypes.findMany({ orderBy: asc(classTypes.sortOrder) }),
+    db
+      .select({ classTypeId: sessions.classTypeId, count: sql<string>`count(*)` })
+      .from(sessions)
+      .groupBy(sessions.classTypeId),
+  ]);
+  const sessionCounts = new Map(sessionCountRows.map((r) => [r.classTypeId, Number(r.count)]));
 
   return (
     <div>
@@ -17,7 +25,9 @@ export default async function AdminClassTypesPage() {
       <p className="mt-2 text-graphite">Price and duration changes only affect future checkouts.</p>
 
       <div className="mt-8 space-y-6">
-        {types.map((ct) => (
+        {types.map((ct) => {
+          const sessionCount = sessionCounts.get(ct.id) ?? 0;
+          return (
           <form
             key={ct.id}
             action={updateClassTypeAction}
@@ -122,11 +132,28 @@ export default async function AdminClassTypesPage() {
               />
             </div>
 
-            <button className="mt-4 bg-ink px-6 py-3 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood">
-              Save Changes
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <button className="bg-ink px-6 py-3 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood">
+                Save Changes
+              </button>
+              {sessionCount === 0 ? (
+                <ConfirmButton
+                  formAction={deleteClassTypeAction}
+                  confirmMessage={`Delete "${ct.name}"? This can't be undone.`}
+                  className="text-sm text-graphite hover:text-blood hover:underline"
+                >
+                  Delete
+                </ConfirmButton>
+              ) : (
+                <p className="text-xs text-graphite">
+                  Can&apos;t delete — {sessionCount} session{sessionCount === 1 ? "" : "s"} scheduled.
+                  Untick &quot;Active&quot; instead to hide it from booking.
+                </p>
+              )}
+            </div>
           </form>
-        ))}
+          );
+        })}
       </div>
 
       <section className="mt-10 border border-ink/10 bg-paper p-6">

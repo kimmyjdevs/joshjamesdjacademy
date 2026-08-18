@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { classTypes, sessions } from "@/db/schema";
+import { classTypes, sessions, bookings } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
 import { formatSessionDate, formatSessionTime } from "@/lib/utils";
-import { createSessionAction, duplicateSessionAction, cancelSessionAction } from "@/lib/admin-actions";
+import { createSessionAction, duplicateSessionAction, cancelSessionAction, deleteSessionAction } from "@/lib/admin-actions";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 
 export default async function AdminSessionsPage() {
-  const [allSessions, activeClassTypes] = await Promise.all([
+  const [allSessions, activeClassTypes, bookingCountRows] = await Promise.all([
     db
       .select({
         id: sessions.id,
@@ -22,9 +23,11 @@ export default async function AdminSessionsPage() {
       .innerJoin(classTypes, eq(sessions.classTypeId, classTypes.id))
       .orderBy(desc(sessions.startsAt)),
     db.query.classTypes.findMany({ where: eq(classTypes.isActive, true), orderBy: asc(classTypes.sortOrder) }),
+    db.select({ sessionId: bookings.sessionId, count: sql<string>`count(*)` }).from(bookings).groupBy(bookings.sessionId),
   ]);
 
   const heldMap = await getSeatsRemainingForSessions(allSessions.map((s) => s.id));
+  const bookingCounts = new Map(bookingCountRows.map((r) => [r.sessionId, Number(r.count)]));
 
   return (
     <div>
@@ -73,6 +76,7 @@ export default async function AdminSessionsPage() {
           <tbody>
             {allSessions.map((s) => {
               const remaining = Math.max(s.maxSeats - (heldMap.get(s.id) ?? 0), 0);
+              const bookingCount = bookingCounts.get(s.id) ?? 0;
               return (
                 <tr key={s.id} className="border-b border-ink/5 last:border-0">
                   <td className="px-4 py-3 font-medium">{s.className}</td>
@@ -101,6 +105,17 @@ export default async function AdminSessionsPage() {
                           <button type="submit" className="text-graphite hover:underline">
                             Cancel
                           </button>
+                        </form>
+                      )}
+                      {bookingCount === 0 && (
+                        <form action={deleteSessionAction}>
+                          <input type="hidden" name="sessionId" value={s.id} />
+                          <ConfirmButton
+                            confirmMessage={`Delete this ${s.className} session? This can't be undone.`}
+                            className="text-graphite hover:text-blood hover:underline"
+                          >
+                            Delete
+                          </ConfirmButton>
                         </form>
                       )}
                     </div>
