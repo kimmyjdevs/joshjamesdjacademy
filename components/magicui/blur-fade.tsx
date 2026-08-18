@@ -22,7 +22,7 @@ export function BlurFade({
       className={className}
       initial={{ opacity: 0, filter: "blur(6px)", transform: "translateY(12px)" }}
       whileInView={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)" }}
-      viewport={{ once: true, margin: "-60px" }}
+      viewport={{ once: true, margin: "0px" }}
       transition={{ duration: 0.5, delay, ease: "easeOut" }}
     >
       {children}
