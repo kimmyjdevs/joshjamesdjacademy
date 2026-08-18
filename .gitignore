@@ -16,6 +16,9 @@ next-env.d.ts
 *.pem
 npm-debug.log*
 
+# raw photography — optimized copies live in public/images
+/Website Images
+
 
 # vercel/netlify
 .vercel

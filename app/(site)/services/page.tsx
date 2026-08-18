@@ -56,6 +56,10 @@ export default async function ServicesPage() {
     orderBy: asc(classTypes.sortOrder),
   });
 
+  const prices = tiers.map((t) => t.priceCents / 100);
+  const priceRange =
+    prices.length > 0 ? `$${Math.min(...prices)}-$${Math.max(...prices)}` : undefined;
+
   const jsonLd = [
     {
       "@context": "https://schema.org",
@@ -64,6 +68,9 @@ export default async function ServicesPage() {
       description: siteConfig.description,
       url: siteConfig.url,
       email: siteConfig.email,
+      image: `${siteConfig.url}/images/gear-mixer-moody.jpg`,
+      sameAs: [siteConfig.instagram],
+      ...(priceRange ? { priceRange } : {}),
       areaServed: "Brisbane, QLD",
       address: { "@type": "PostalAddress", addressLocality: "Brisbane", addressRegion: "QLD", addressCountry: "AU" },
     },

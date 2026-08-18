@@ -9,7 +9,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Book a DJ Class in Brisbane",
   description:
-    "Browse upcoming DJ class sessions in Brisbane, see live seat availability, and book your seat in minutes. Group classes, 1-on-1 coaching, and the Club-Ready Program.",
+    "Browse upcoming DJ class sessions in Brisbane, see live seat availability, and book in minutes. Group classes, 1-on-1 coaching, and the Club-Ready Program.",
   alternates: { canonical: "/booking" },
 };
 

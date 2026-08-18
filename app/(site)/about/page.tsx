@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { ShimmerButton } from "@/components/magicui/shimmer-button";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { XMark } from "@/components/x-mark";
-import { PhotoPlaceholder } from "@/components/photo-placeholder";
 
 export const metadata: Metadata = {
-  title: "About Josh James",
+  title: "About Josh",
   description:
     "17+ years in music and entertainment. 15 as a DJ, 5 as a Music Director, 8 in audio-visual production. Meet the Brisbane DJ trainer behind Josh James DJ Academy.",
   alternates: { canonical: "/about" },
@@ -38,10 +38,16 @@ export default function AboutPage() {
         </BlurFade>
       </section>
 
-      <PhotoPlaceholder
-        label="Josh James at the decks — dark, moody DJ-booth shot"
-        className="h-[50vh] w-full md:h-[60vh]"
-      />
+      <div className="relative h-[50vh] w-full md:h-[60vh]">
+        <Image
+          src="/images/gear-mixer-moody.jpg"
+          alt="Hands on a Pioneer DJ mixer, mid-transition"
+          fill
+          className="object-cover"
+          priority
+          sizes="100vw"
+        />
+      </div>
 
       <section className="container-x py-16 md:py-24">
         <div className="grid gap-12 md:grid-cols-2">
@@ -79,6 +85,18 @@ export default function AboutPage() {
               ))}
             </div>
           </BlurFade>
+        </div>
+      </section>
+
+      <section className="border-t border-ink/10">
+        <div className="relative h-[40vh] w-full md:h-[50vh]">
+          <Image
+            src="/images/teaching-hands.jpg"
+            alt="Josh working the decks side by side with a student"
+            fill
+            className="object-cover"
+            sizes="100vw"
+          />
         </div>
       </section>
 

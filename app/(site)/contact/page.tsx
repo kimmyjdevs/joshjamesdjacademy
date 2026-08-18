@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with Josh James DJ Academy in Brisbane. Ask about classes, gear, or availability.",
+    "Get in touch with Josh James DJ Academy in Brisbane. Ask about DJ classes, gear, pricing, or availability — or head straight to booking to lock in a seat.",
   alternates: { canonical: "/contact" },
 };
 
@@ -34,8 +34,19 @@ const faqs = [
 ];
 
 export default function ContactPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  };
+
   return (
     <div className="container-x py-16 md:py-24">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="grid gap-16 lg:grid-cols-2">
         <div>
           <p className="mb-3 font-display text-sm uppercase tracking-widest text-blood">Contact</p>

@@ -8,7 +8,7 @@ import { XMark } from "@/components/x-mark";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "DJ Lessons Brisbane — Bedroom to Booth",
+  title: "DJ Lessons Brisbane",
   description:
     "Learn to DJ properly with Josh James — 17+ years in the industry. Group classes, 1-on-1 coaching, and a Club-Ready Program in Brisbane. Book your seat today.",
   alternates: { canonical: "/" },
@@ -93,6 +93,21 @@ export default function HomePage() {
               </div>
             </BlurFade>
           ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-1 md:grid-cols-4">
+        <div className="relative aspect-square">
+          <Image src="/images/gear-play-pause.jpg" alt="Cueing up a track on a Pioneer CDJ" fill className="object-cover" sizes="(min-width: 768px) 25vw, 50vw" />
+        </div>
+        <div className="relative aspect-square">
+          <Image src="/images/gear-fader-detail.jpg" alt="Riding the channel fader mid-mix" fill className="object-cover" sizes="(min-width: 768px) 25vw, 50vw" />
+        </div>
+        <div className="relative aspect-square">
+          <Image src="/images/student-headphones-portrait.jpg" alt="A student locked into the mix" fill className="object-cover" sizes="(min-width: 768px) 25vw, 50vw" />
+        </div>
+        <div className="relative aspect-square">
+          <Image src="/images/gear-usb-load.jpg" alt="Loading a set from USB on a Pioneer player" fill className="object-cover" sizes="(min-width: 768px) 25vw, 50vw" />
         </div>
       </section>
 
