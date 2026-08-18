@@ -237,6 +237,37 @@ export async function deleteEnquiryAction(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function deleteBookingAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+
+  const booking = await db.query.bookings.findFirst({ where: eq(bookings.id, id) });
+  if (!booking) return;
+
+  if (booking.status === "confirmed" && booking.stripePaymentIntentId) {
+    try {
+      await stripe.refunds.create({ payment_intent: booking.stripePaymentIntentId });
+    } catch (err) {
+      // Don't delete a paid booking if the refund failed — would lose the
+      // only record that this customer paid and was never refunded.
+      console.error(`Refund failed for booking ${id}, not deleting:`, err);
+      return;
+    }
+  } else if (booking.status === "pending" && booking.stripeCheckoutSessionId) {
+    try {
+      await stripe.checkout.sessions.expire(booking.stripeCheckoutSessionId);
+    } catch {
+      // Already expired/completed on Stripe's side — safe to ignore.
+    }
+  }
+
+  await db.delete(bookings).where(eq(bookings.id, id));
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/sessions");
+  revalidatePath("/admin");
+}
+
 export async function getSessionRoster(sessionId: number) {
   await requireAdmin();
   return db.query.bookings.findMany({

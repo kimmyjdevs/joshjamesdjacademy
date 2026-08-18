@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bookings, classTypes, sessions } from "@/db/schema";
 import { formatCents, formatSessionDate, formatSessionTime } from "@/lib/utils";
+import { deleteBookingAction } from "@/lib/admin-actions";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 
 const STATUSES = ["all", "pending", "confirmed", "cancelled", "expired"] as const;
 
@@ -61,6 +63,7 @@ export default async function AdminBookingsPage({
               <th className="px-4 py-3 font-display text-xs uppercase">Seats</th>
               <th className="px-4 py-3 font-display text-xs uppercase">Status</th>
               <th className="px-4 py-3 font-display text-xs uppercase">Paid</th>
+              <th className="px-4 py-3 font-display text-xs uppercase">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -77,11 +80,26 @@ export default async function AdminBookingsPage({
                 <td className="px-4 py-3">{b.seats}</td>
                 <td className="px-4 py-3 capitalize">{b.status}</td>
                 <td className="px-4 py-3">{b.amountPaidCents ? formatCents(b.amountPaidCents) : "—"}</td>
+                <td className="px-4 py-3">
+                  <form action={deleteBookingAction}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <ConfirmButton
+                      confirmMessage={
+                        b.status === "confirmed"
+                          ? `Delete this booking from ${b.customerName}? This will refund ${b.amountPaidCents ? formatCents(b.amountPaidCents) : "the payment"} via Stripe first, then remove the record. This can't be undone.`
+                          : `Delete this booking from ${b.customerName}? This can't be undone.`
+                      }
+                      className="text-graphite hover:text-blood hover:underline"
+                    >
+                      Delete
+                    </ConfirmButton>
+                  </form>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-graphite">
+                <td colSpan={7} className="px-4 py-6 text-center text-graphite">
                   No bookings here yet.
                 </td>
               </tr>
