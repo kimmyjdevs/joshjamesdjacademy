@@ -4,9 +4,13 @@ import { db } from "@/db";
 import { enquiries } from "@/db/schema";
 import { isRateLimited } from "@/lib/rate-limit";
 
+const FORM_TYPES = ["general", "holiday_program", "1on1", "group_class", "corporate"] as const;
+
 const bodySchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email(),
+  phone: z.string().trim().max(40).optional(),
+  formType: z.enum(FORM_TYPES).optional(),
   experienceLevel: z.string().trim().max(60).optional(),
   message: z.string().trim().min(5).max(2000),
   company: z.string().max(0).optional(), // honeypot — must stay empty
@@ -37,11 +41,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const { name, email, experienceLevel, message } = parsed.data;
+  const { name, email, phone, formType, experienceLevel, message } = parsed.data;
 
   await db.insert(enquiries).values({
     name,
     email,
+    phone: phone || null,
+    formType: formType || "general",
     experienceLevel: experienceLevel || null,
     message,
   });

@@ -9,6 +9,14 @@ const experienceLevels = [
   "Working DJ",
 ];
 
+const formTypes = [
+  { value: "general", label: "General enquiry" },
+  { value: "holiday_program", label: "School Holiday Program" },
+  { value: "1on1", label: "1-on-1 Coaching" },
+  { value: "group_class", label: "Group Class" },
+  { value: "corporate", label: "Corporate / Other" },
+];
+
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +90,34 @@ export function ContactForm() {
           required
           className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
         />
+      </div>
+
+      <div>
+        <label className="mb-2 block font-display text-xs uppercase tracking-wide">
+          Phone (optional)
+        </label>
+        <input
+          name="phone"
+          type="tel"
+          className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block font-display text-xs uppercase tracking-wide">
+          What&apos;s this about?
+        </label>
+        <select
+          name="formType"
+          defaultValue="general"
+          className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink"
+        >
+          {formTypes.map((ft) => (
+            <option key={ft.value} value={ft.value}>
+              {ft.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>

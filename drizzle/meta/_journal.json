@@ -8,6 +8,13 @@
       "when": 1786258236246,
       "tag": "0000_red_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787055507654,
+      "tag": "0001_fast_zarda",
+      "breakpoints": true
     }
   ]
 }

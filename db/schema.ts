@@ -68,7 +68,10 @@ export const enquiries = pgTable("enquiries", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull(),
+  phone: text("phone"),
   experienceLevel: text("experience_level"),
+  // general | holiday_program | 1on1 | group_class | corporate
+  formType: varchar("form_type", { length: 30 }).notNull().default("general"),
   message: text("message").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
