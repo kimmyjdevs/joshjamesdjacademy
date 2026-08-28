@@ -49,20 +49,30 @@ export async function setSelectedCalendar(calendarId: string) {
     .where(eq(googleCalendarConnection.id, connection.id));
 }
 
-/** Lists the connected account's calendars, for the "which calendar?" picker in admin. */
+/**
+ * Lists the connected account's calendars, for the "which calendar?" picker in
+ * admin. Never throws — an existing connection made before this feature shipped
+ * won't have the calendarlist scope yet, and a bad/expired token shouldn't be
+ * able to take the whole Dashboard down with it.
+ */
 export async function listAvailableCalendars() {
-  const client = await getAuthorizedClient();
-  if (!client) return [];
+  try {
+    const client = await getAuthorizedClient();
+    if (!client) return [];
 
-  const calendar = google.calendar({ version: "v3", auth: client });
-  const { data } = await calendar.calendarList.list();
-  return (data.items || [])
-    .filter((c): c is typeof c & { id: string } => Boolean(c.id))
-    .map((c) => ({
-      id: c.id,
-      summary: c.summary || c.id,
-      primary: Boolean(c.primary),
-    }));
+    const calendar = google.calendar({ version: "v3", auth: client });
+    const { data } = await calendar.calendarList.list();
+    return (data.items || [])
+      .filter((c): c is typeof c & { id: string } => Boolean(c.id))
+      .map((c) => ({
+        id: c.id,
+        summary: c.summary || c.id,
+        primary: Boolean(c.primary),
+      }));
+  } catch (err) {
+    console.error("Failed to list Google calendars:", err);
+    return [];
+  }
 }
 
 async function getAuthorizedClient() {
