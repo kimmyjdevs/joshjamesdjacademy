@@ -15,6 +15,13 @@
       "when": 1787055507654,
       "tag": "0001_fast_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787887371725,
+      "tag": "0002_bitter_stature",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { classTypes, sessions, bookings, enquiries } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
+import { syncSessionToCalendar, deleteCalendarEvent, disconnectGoogleCalendar } from "@/lib/google-calendar";
 
 async function requireAdmin() {
   const { userId } = await auth();
@@ -113,6 +114,7 @@ export async function cancelSessionAction(formData: FormData) {
   }
 
   await db.update(sessions).set({ status: "cancelled" }).where(eq(sessions.id, sessionId));
+  await deleteCalendarEvent(sessionId);
 
   revalidatePath("/admin/sessions");
   revalidatePath("/admin/bookings");
@@ -262,9 +264,16 @@ export async function deleteBookingAction(formData: FormData) {
   }
 
   await db.delete(bookings).where(eq(bookings.id, id));
+  await syncSessionToCalendar(booking.sessionId);
 
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/sessions");
+  revalidatePath("/admin");
+}
+
+export async function disconnectGoogleCalendarAction() {
+  await requireAdmin();
+  await disconnectGoogleCalendar();
   revalidatePath("/admin");
 }
 

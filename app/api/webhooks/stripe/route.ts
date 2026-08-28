@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { bookings, sessions, classTypes } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
 import { sendBookingConfirmationEmail, sendAdminBookingAlert } from "@/lib/email";
+import { syncSessionToCalendar } from "@/lib/google-calendar";
 
 export const runtime = "nodejs";
 
@@ -68,6 +69,8 @@ async function handleCheckoutCompleted(checkoutSession: Stripe.Checkout.Session)
       confirmedAt: new Date(),
     })
     .where(eq(bookings.id, bookingId));
+
+  await syncSessionToCalendar(booking.sessionId);
 
   try {
     const session = await db.query.sessions.findFirst({ where: eq(sessions.id, booking.sessionId) });

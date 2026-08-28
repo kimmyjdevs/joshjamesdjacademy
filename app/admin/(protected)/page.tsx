@@ -4,12 +4,21 @@ import { db } from "@/db";
 import { bookings, classTypes, enquiries, sessions } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
 import { formatCents, formatSessionDate, formatSessionTime } from "@/lib/utils";
+import { getConnection, isGoogleCalendarConfigured } from "@/lib/google-calendar";
+import { disconnectGoogleCalendarAction } from "@/lib/admin-actions";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: { calendar?: string };
+}) {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const now = new Date();
+  const calendarConnection = await getConnection();
+  const calendarConfigured = isGoogleCalendarConfigured();
 
   const [
     recentEnquiries,
@@ -64,6 +73,58 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <h1 className="text-3xl">Dashboard</h1>
+
+      {searchParams.calendar === "connected" && (
+        <p className="mt-4 border border-ink/10 bg-cloud px-4 py-3 text-sm">
+          Google Calendar connected. New bookings will start appearing there automatically.
+        </p>
+      )}
+      {searchParams.calendar === "error" && (
+        <p className="mt-4 border border-blood bg-blood/5 px-4 py-3 text-sm text-blood">
+          Something went wrong connecting Google Calendar. Try again, or check the setup.
+        </p>
+      )}
+      {searchParams.calendar === "not_configured" && (
+        <p className="mt-4 border border-blood bg-blood/5 px-4 py-3 text-sm text-blood">
+          Google Calendar isn&apos;t set up on this site yet — needs a developer to add the API
+          credentials first.
+        </p>
+      )}
+
+      <section className="mt-8 flex flex-wrap items-center justify-between gap-4 border border-ink/10 bg-paper p-6">
+        <div>
+          <h2 className="font-display text-lg uppercase">Google Calendar</h2>
+          {calendarConnection ? (
+            <p className="mt-1 text-sm text-graphite">
+              Connected as <span className="font-medium text-ink">{calendarConnection.connectedEmail}</span>.
+              Confirmed bookings appear there automatically.
+            </p>
+          ) : calendarConfigured ? (
+            <p className="mt-1 text-sm text-graphite">
+              Not connected yet — bookings won&apos;t sync to a calendar until you connect one.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-graphite">Not set up on this site yet.</p>
+          )}
+        </div>
+        {calendarConnection ? (
+          <form action={disconnectGoogleCalendarAction}>
+            <ConfirmButton
+              confirmMessage="Disconnect Google Calendar? Future bookings will stop syncing until you reconnect."
+              className="border border-ink/20 px-5 py-2 text-sm hover:border-ink"
+            >
+              Disconnect
+            </ConfirmButton>
+          </form>
+        ) : calendarConfigured ? (
+          <a
+            href="/api/admin/google-calendar/connect"
+            className="bg-ink px-5 py-2 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood"
+          >
+            Connect Google Calendar
+          </a>
+        ) : null}
+      </section>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatTile label="New enquiries (7 days)" value={Number(newEnquiriesRow[0]?.count ?? 0)} href="/admin/enquiries" />

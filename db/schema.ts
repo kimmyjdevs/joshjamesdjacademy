@@ -43,7 +43,21 @@ export const sessions = pgTable("sessions", {
   maxSeats: integer("max_seats").notNull(),
   status: varchar("status", { length: 20 }).notNull().default("scheduled"), // scheduled | cancelled | completed
   notes: text("notes"),
+  // Set the first time a booking is confirmed for this session — lets us
+  // update the same Google Calendar event on later bookings instead of
+  // creating a duplicate, and lets us skip sessions nobody's booked yet.
+  googleCalendarEventId: text("google_calendar_event_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const googleCalendarConnection = pgTable("google_calendar_connection", {
+  id: serial("id").primaryKey(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiryDate: timestamp("expiry_date", { withTimezone: true }).notNull(),
+  connectedEmail: text("connected_email").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const bookings = pgTable("bookings", {
