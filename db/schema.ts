@@ -56,6 +56,9 @@ export const googleCalendarConnection = pgTable("google_calendar_connection", {
   refreshToken: text("refresh_token").notNull(),
   expiryDate: timestamp("expiry_date", { withTimezone: true }).notNull(),
   connectedEmail: text("connected_email").notNull(),
+  // Which of the connected account's calendars bookings sync to. Defaults to
+  // the account's main calendar until Josh picks a different one from the admin UI.
+  calendarId: text("calendar_id").notNull().default("primary"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

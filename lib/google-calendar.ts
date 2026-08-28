@@ -26,6 +26,7 @@ export function getAuthUrl() {
     prompt: "consent", // forces a refresh_token back even on re-connect
     scope: [
       "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
       "https://www.googleapis.com/auth/userinfo.email",
     ],
   });
@@ -37,6 +38,31 @@ export async function getConnection() {
 
 export async function disconnectGoogleCalendar() {
   await db.delete(googleCalendarConnection);
+}
+
+export async function setSelectedCalendar(calendarId: string) {
+  const connection = await getConnection();
+  if (!connection) return;
+  await db
+    .update(googleCalendarConnection)
+    .set({ calendarId, updatedAt: new Date() })
+    .where(eq(googleCalendarConnection.id, connection.id));
+}
+
+/** Lists the connected account's calendars, for the "which calendar?" picker in admin. */
+export async function listAvailableCalendars() {
+  const client = await getAuthorizedClient();
+  if (!client) return [];
+
+  const calendar = google.calendar({ version: "v3", auth: client });
+  const { data } = await calendar.calendarList.list();
+  return (data.items || [])
+    .filter((c): c is typeof c & { id: string } => Boolean(c.id))
+    .map((c) => ({
+      id: c.id,
+      summary: c.summary || c.id,
+      primary: Boolean(c.primary),
+    }));
 }
 
 async function getAuthorizedClient() {
@@ -77,6 +103,8 @@ export async function syncSessionToCalendar(sessionId: number) {
   try {
     const client = await getAuthorizedClient();
     if (!client) return;
+    const connection = await getConnection();
+    const calendarId = connection?.calendarId || "primary";
 
     const session = await db.query.sessions.findFirst({ where: eq(sessions.id, sessionId) });
     if (!session) return;
@@ -116,12 +144,12 @@ export async function syncSessionToCalendar(sessionId: number) {
 
     if (session.googleCalendarEventId) {
       await calendar.events.update({
-        calendarId: "primary",
+        calendarId,
         eventId: session.googleCalendarEventId,
         requestBody: eventBody,
       });
     } else {
-      const created = await calendar.events.insert({ calendarId: "primary", requestBody: eventBody });
+      const created = await calendar.events.insert({ calendarId, requestBody: eventBody });
       if (created.data.id) {
         await db
           .update(sessions)
@@ -139,12 +167,14 @@ export async function deleteCalendarEvent(sessionId: number) {
   try {
     const client = await getAuthorizedClient();
     if (!client) return;
+    const connection = await getConnection();
+    const calendarId = connection?.calendarId || "primary";
 
     const session = await db.query.sessions.findFirst({ where: eq(sessions.id, sessionId) });
     if (!session?.googleCalendarEventId) return;
 
     const calendar = google.calendar({ version: "v3", auth: client });
-    await calendar.events.delete({ calendarId: "primary", eventId: session.googleCalendarEventId }).catch(() => {
+    await calendar.events.delete({ calendarId, eventId: session.googleCalendarEventId }).catch(() => {
       // Already deleted on Google's side, or never existed — fine either way.
     });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "google_calendar_connection" ADD COLUMN "calendar_id" text DEFAULT 'primary' NOT NULL;

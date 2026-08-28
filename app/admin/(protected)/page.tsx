@@ -4,8 +4,8 @@ import { db } from "@/db";
 import { bookings, classTypes, enquiries, sessions } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
 import { formatCents, formatSessionDate, formatSessionTime } from "@/lib/utils";
-import { getConnection, isGoogleCalendarConfigured } from "@/lib/google-calendar";
-import { disconnectGoogleCalendarAction } from "@/lib/admin-actions";
+import { getConnection, isGoogleCalendarConfigured, listAvailableCalendars } from "@/lib/google-calendar";
+import { disconnectGoogleCalendarAction, setGoogleCalendarAction } from "@/lib/admin-actions";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ export default async function AdminDashboardPage({
   const now = new Date();
   const calendarConnection = await getConnection();
   const calendarConfigured = isGoogleCalendarConfigured();
+  const availableCalendars = calendarConnection ? await listAvailableCalendars() : [];
 
   const [
     recentEnquiries,
@@ -91,39 +92,79 @@ export default async function AdminDashboardPage({
         </p>
       )}
 
-      <section className="mt-8 flex flex-wrap items-center justify-between gap-4 border border-ink/10 bg-paper p-6">
-        <div>
-          <h2 className="font-display text-lg uppercase">Google Calendar</h2>
+      <section className="mt-8 border border-ink/10 bg-paper p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-display text-lg uppercase">Google Calendar</h2>
+            {calendarConnection ? (
+              <p className="mt-1 text-sm text-graphite">
+                Connected as <span className="font-medium text-ink">{calendarConnection.connectedEmail}</span>.
+                Confirmed bookings appear there automatically.
+              </p>
+            ) : calendarConfigured ? (
+              <p className="mt-1 text-sm text-graphite">
+                Not connected yet — bookings won&apos;t sync to a calendar until you connect one.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-graphite">Not set up on this site yet.</p>
+            )}
+          </div>
           {calendarConnection ? (
-            <p className="mt-1 text-sm text-graphite">
-              Connected as <span className="font-medium text-ink">{calendarConnection.connectedEmail}</span>.
-              Confirmed bookings appear there automatically.
-            </p>
+            <form action={disconnectGoogleCalendarAction}>
+              <ConfirmButton
+                confirmMessage="Disconnect Google Calendar? Future bookings will stop syncing until you reconnect."
+                className="border border-ink/20 px-5 py-2 text-sm hover:border-ink"
+              >
+                Disconnect
+              </ConfirmButton>
+            </form>
           ) : calendarConfigured ? (
-            <p className="mt-1 text-sm text-graphite">
-              Not connected yet — bookings won&apos;t sync to a calendar until you connect one.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-graphite">Not set up on this site yet.</p>
-          )}
-        </div>
-        {calendarConnection ? (
-          <form action={disconnectGoogleCalendarAction}>
-            <ConfirmButton
-              confirmMessage="Disconnect Google Calendar? Future bookings will stop syncing until you reconnect."
-              className="border border-ink/20 px-5 py-2 text-sm hover:border-ink"
+            <a
+              href="/api/admin/google-calendar/connect"
+              className="bg-ink px-5 py-2 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood"
             >
-              Disconnect
-            </ConfirmButton>
-          </form>
-        ) : calendarConfigured ? (
-          <a
-            href="/api/admin/google-calendar/connect"
-            className="bg-ink px-5 py-2 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood"
+              Connect Google Calendar
+            </a>
+          ) : null}
+        </div>
+
+        {calendarConnection && (
+          <form
+            action={setGoogleCalendarAction}
+            className="mt-4 flex flex-wrap items-end gap-3 border-t border-ink/10 pt-4"
           >
-            Connect Google Calendar
-          </a>
-        ) : null}
+            <div>
+              <label className="mb-2 block font-display text-xs uppercase tracking-wide">
+                Sync bookings to
+              </label>
+              {availableCalendars.length > 0 ? (
+                <select
+                  name="calendarId"
+                  defaultValue={calendarConnection.calendarId}
+                  className="w-64 border border-ink/20 bg-paper px-4 py-2 text-sm focus:border-ink"
+                >
+                  {availableCalendars.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.summary}
+                      {c.primary ? " (main calendar)" : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-graphite">
+                  Couldn&apos;t load your calendar list — reconnect to refresh access.
+                </p>
+              )}
+            </div>
+            {availableCalendars.length > 0 && (
+              <button className="border border-ink/20 px-5 py-2 text-sm hover:border-ink">Save</button>
+            )}
+            <p className="w-full text-xs text-graphite">
+              Pick a dedicated calendar (e.g. &ldquo;Bookings&rdquo;) if you&apos;d rather keep this off your
+              main personal calendar.
+            </p>
+          </form>
+        )}
       </section>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
