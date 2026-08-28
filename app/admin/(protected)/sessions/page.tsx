@@ -61,9 +61,9 @@ export default async function AdminSessionsPage() {
             <textarea name="notes" rows={2} className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
           </div>
           <p className="md:col-span-3 -mt-2 text-xs text-graphite">
-            "How many sessions" only matters if Repeat is set to Weekly or Fortnightly — e.g. Weekly + 8
-            creates 8 sessions, one every week starting from the date above. Leave Repeat on "Just this
-            one" to add a single session like before.
+            &ldquo;How many sessions&rdquo; only matters if Repeat is set to Weekly or Fortnightly — e.g.
+            Weekly + 8 creates 8 sessions, one every week starting from the date above. Leave Repeat on
+            &ldquo;Just this one&rdquo; to add a single session like before.
           </p>
           <div className="md:col-span-3">
             <button className="bg-ink px-6 py-3 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood">
