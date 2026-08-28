@@ -12,8 +12,12 @@ const bodySchema = z.object({
   phone: z.string().trim().max(40).optional(),
   formType: z.enum(FORM_TYPES).optional(),
   experienceLevel: z.string().trim().max(60).optional(),
-  message: z.string().trim().min(5).max(2000),
-  company: z.string().max(0).optional(), // honeypot — must stay empty
+  message: z.string().trim().min(2, "Message is too short.").max(2000),
+  // Honeypot — bots fill every field. Deliberately NOT constrained to empty
+  // here: a schema-level max(0) turned any accidental browser autofill of it
+  // into a hard "check the form" rejection for real visitors. Any content is
+  // instead checked after parsing succeeds, below, and just quietly no-ops.
+  hp_confirm: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -30,14 +34,18 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(json);
 
   if (!parsed.success) {
+    // Surface the actual field/reason instead of a generic message — this
+    // silently swallowed real submissions before with no way to tell why.
+    const firstIssue = parsed.error.issues[0];
+    const detail = firstIssue ? ` (${firstIssue.path.join(".") || "field"}: ${firstIssue.message})` : "";
     return NextResponse.json(
-      { error: "That didn't come through right. Check the form and try again." },
+      { error: `That didn't come through right. Check the form and try again.${detail}` },
       { status: 400 },
     );
   }
 
   // Honeypot tripped — pretend success, drop silently.
-  if (parsed.data.company) {
+  if (parsed.data.hp_confirm) {
     return NextResponse.json({ ok: true });
   }
 

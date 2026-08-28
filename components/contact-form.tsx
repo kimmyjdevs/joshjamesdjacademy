@@ -62,12 +62,19 @@ export function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Honeypot — hidden from real users, bots often fill every field */}
+      {/*
+        Honeypot — hidden from real users, bots often fill every field.
+        Deliberately named/autocompleted so browsers don't mistake it for a
+        real profile field (e.g. "company") and silently autofill it for a
+        real visitor, which used to trip this as a false positive.
+      */}
       <input
         type="text"
-        name="company"
+        name="hp_confirm"
         tabIndex={-1}
         autoComplete="off"
+        data-lpignore="true"
+        data-1p-ignore="true"
         className="absolute left-[-9999px] h-0 w-0 opacity-0"
         aria-hidden="true"
       />
