@@ -5,7 +5,7 @@ import { bookings, classTypes, enquiries, sessions } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
 import { formatCents, formatSessionDate, formatSessionTime } from "@/lib/utils";
 import { getConnection, isGoogleCalendarConfigured, listAvailableCalendars } from "@/lib/google-calendar";
-import { disconnectGoogleCalendarAction, setGoogleCalendarAction } from "@/lib/admin-actions";
+import { disconnectGoogleCalendarAction, setGoogleCalendarAction, sendTestCalendarEventAction } from "@/lib/admin-actions";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams: { calendar?: string };
+  searchParams: { calendar?: string; testEventUrl?: string; testCalendarName?: string; testError?: string };
 }) {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const now = new Date();
@@ -91,6 +91,20 @@ export default async function AdminDashboardPage({
           credentials first.
         </p>
       )}
+      {searchParams.calendar === "test_sent" && searchParams.testEventUrl && (
+        <p className="mt-4 border border-ink/10 bg-cloud px-4 py-3 text-sm">
+          Test event created on <span className="font-medium text-ink">{searchParams.testCalendarName}</span>.{" "}
+          <a href={searchParams.testEventUrl} target="_blank" rel="noreferrer" className="text-blood hover:underline">
+            Open it in Google Calendar
+          </a>{" "}
+          to confirm — safe to delete afterwards.
+        </p>
+      )}
+      {searchParams.calendar === "test_failed" && (
+        <p className="mt-4 border border-blood bg-blood/5 px-4 py-3 text-sm text-blood">
+          Couldn&apos;t create a test event{searchParams.testError ? `: ${searchParams.testError}` : "."}
+        </p>
+      )}
 
       <section className="mt-8 border border-ink/10 bg-paper p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -162,6 +176,16 @@ export default async function AdminDashboardPage({
             <p className="w-full text-xs text-graphite">
               Pick a dedicated calendar (e.g. &ldquo;Bookings&rdquo;) if you&apos;d rather keep this off your
               main personal calendar.
+            </p>
+          </form>
+        )}
+
+        {calendarConnection && (
+          <form action={sendTestCalendarEventAction} className="mt-4 border-t border-ink/10 pt-4">
+            <button className="border border-ink/20 px-5 py-2 text-sm hover:border-ink">Send test event</button>
+            <p className="mt-2 text-xs text-graphite">
+              Not sure which calendar &ldquo;{calendarConnection.calendarId}&rdquo; actually is? This drops a
+              15-minute test event on it 5 minutes from now and gives you a direct link to confirm.
             </p>
           </form>
         )}

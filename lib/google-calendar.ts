@@ -172,6 +172,56 @@ export async function syncSessionToCalendar(sessionId: number) {
   }
 }
 
+/**
+ * Creates a short-lived dummy event on whichever calendar is currently
+ * selected, and hands back Google's own link to it — lets Josh/Kim click
+ * straight through and confirm with their own eyes which calendar bookings
+ * are actually landing on, rather than trusting a name in a dropdown.
+ */
+export async function sendTestCalendarEvent(): Promise<
+  { ok: true; htmlLink: string; calendarSummary: string } | { ok: false; error: string }
+> {
+  try {
+    const client = await getAuthorizedClient();
+    if (!client) return { ok: false, error: "Google Calendar isn't connected." };
+    const connection = await getConnection();
+    const calendarId = connection?.calendarId || "primary";
+
+    const calendar = google.calendar({ version: "v3", auth: client });
+
+    let calendarSummary = calendarId;
+    try {
+      const { data } = await calendar.calendarList.get({ calendarId });
+      calendarSummary = data.summary || calendarId;
+    } catch {
+      // Non-fatal — still create the event, just show the raw ID instead of a name.
+    }
+
+    const start = new Date(Date.now() + 5 * 60 * 1000);
+    const end = new Date(start.getTime() + 15 * 60 * 1000);
+
+    const { data: event } = await calendar.events.insert({
+      calendarId,
+      requestBody: {
+        summary: "Test event — Josh James DJ Academy sync",
+        description:
+          'Created by the "Send test event" button in the admin Dashboard to confirm which ' +
+          "calendar bookings sync to. Safe to delete.",
+        start: { dateTime: start.toISOString() },
+        end: { dateTime: end.toISOString() },
+      },
+    });
+
+    if (!event.htmlLink) {
+      return { ok: false, error: "Event was created but Google didn't return a link to it." };
+    }
+    return { ok: true, htmlLink: event.htmlLink, calendarSummary };
+  } catch (err) {
+    console.error("Test calendar event failed:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
 /** Removes a session's calendar event entirely — e.g. the session was cancelled. */
 export async function deleteCalendarEvent(sessionId: number) {
   try {

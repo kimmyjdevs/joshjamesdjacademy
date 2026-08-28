@@ -2,11 +2,18 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { classTypes, sessions, bookings, enquiries } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
-import { syncSessionToCalendar, deleteCalendarEvent, disconnectGoogleCalendar, setSelectedCalendar } from "@/lib/google-calendar";
+import {
+  syncSessionToCalendar,
+  deleteCalendarEvent,
+  disconnectGoogleCalendar,
+  setSelectedCalendar,
+  sendTestCalendarEvent,
+} from "@/lib/google-calendar";
 
 async function requireAdmin() {
   const { userId } = await auth();
@@ -297,6 +304,22 @@ export async function setGoogleCalendarAction(formData: FormData) {
   if (!calendarId) return;
   await setSelectedCalendar(calendarId);
   revalidatePath("/admin");
+}
+
+export async function sendTestCalendarEventAction() {
+  await requireAdmin();
+  const result = await sendTestCalendarEvent();
+
+  const params = new URLSearchParams();
+  if (result.ok) {
+    params.set("calendar", "test_sent");
+    params.set("testEventUrl", result.htmlLink);
+    params.set("testCalendarName", result.calendarSummary);
+  } else {
+    params.set("calendar", "test_failed");
+    params.set("testError", result.error);
+  }
+  redirect(`/admin?${params.toString()}`);
 }
 
 export async function getSessionRoster(sessionId: number) {
