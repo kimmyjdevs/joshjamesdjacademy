@@ -21,6 +21,11 @@ function roundToNearestQuarterHour(date: Date): Date {
   return rounded;
 }
 
+const REPEAT_INTERVAL_DAYS: Record<string, number> = {
+  weekly: 7,
+  fortnightly: 14,
+};
+
 export async function createSessionAction(formData: FormData) {
   await requireAdmin();
 
@@ -31,19 +36,28 @@ export async function createSessionAction(formData: FormData) {
   const maxSeats = Number(formData.get("maxSeats"));
   const notes = String(formData.get("notes") || "") || null;
   const durationMinutes = Number(formData.get("durationMinutes"));
+  const repeat = String(formData.get("repeat") || "none");
+  const occurrences = Math.min(Math.max(Number(formData.get("occurrences")) || 1, 1), 52);
 
-  const startsAt = roundToNearestQuarterHour(new Date(`${date}T${time}:00`));
-  const endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
+  const firstStartsAt = roundToNearestQuarterHour(new Date(`${date}T${time}:00`));
+  const intervalDays = REPEAT_INTERVAL_DAYS[repeat] ?? 0;
+  const count = intervalDays > 0 ? occurrences : 1;
 
-  await db.insert(sessions).values({
-    classTypeId,
-    startsAt,
-    endsAt,
-    location,
-    maxSeats,
-    notes,
-    status: "scheduled",
+  const rows = Array.from({ length: count }, (_, i) => {
+    const startsAt = new Date(firstStartsAt.getTime() + i * intervalDays * 24 * 60 * 60 * 1000);
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60000);
+    return {
+      classTypeId,
+      startsAt,
+      endsAt,
+      location,
+      maxSeats,
+      notes,
+      status: "scheduled" as const,
+    };
   });
+
+  await db.insert(sessions).values(rows);
 
   revalidatePath("/admin/sessions");
   revalidatePath("/booking");

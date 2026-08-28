@@ -48,15 +48,26 @@ export default async function AdminSessionsPage() {
           <TextField name="durationMinutes" label="Duration (min)" type="number" defaultValue="120" required />
           <TextField name="maxSeats" label="Max seats" type="number" defaultValue="8" required />
           <TextField name="location" label="Location" defaultValue="Josh James DJ Academy Studio, Fortitude Valley, Brisbane QLD" required />
+          <SelectField name="repeat" label="Repeat">
+            <option value="none">Just this one</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option>
+          </SelectField>
+          <TextField name="occurrences" label="How many sessions" type="number" defaultValue="1" />
           <div className="md:col-span-3">
             <label className="mb-2 block font-display text-xs uppercase tracking-wide">
               Notes (shown to booked students)
             </label>
             <textarea name="notes" rows={2} className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
           </div>
+          <p className="md:col-span-3 -mt-2 text-xs text-graphite">
+            "How many sessions" only matters if Repeat is set to Weekly or Fortnightly — e.g. Weekly + 8
+            creates 8 sessions, one every week starting from the date above. Leave Repeat on "Just this
+            one" to add a single session like before.
+          </p>
           <div className="md:col-span-3">
             <button className="bg-ink px-6 py-3 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood">
-              Create Session
+              Create Session(s)
             </button>
           </div>
         </form>
