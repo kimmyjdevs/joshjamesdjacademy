@@ -4,7 +4,13 @@ import { db } from "@/db";
 import { classTypes, sessions, bookings } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
 import { formatSessionDate, formatSessionTime } from "@/lib/utils";
-import { createSessionAction, duplicateSessionAction, cancelSessionAction, deleteSessionAction } from "@/lib/admin-actions";
+import {
+  createSessionAction,
+  duplicateSessionAction,
+  cancelSessionAction,
+  deleteSessionAction,
+  updateSessionLocationAction,
+} from "@/lib/admin-actions";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 
 export default async function AdminSessionsPage() {
@@ -79,6 +85,7 @@ export default async function AdminSessionsPage() {
             <tr>
               <th className="px-4 py-3 font-display text-xs uppercase">Class</th>
               <th className="px-4 py-3 font-display text-xs uppercase">Date</th>
+              <th className="px-4 py-3 font-display text-xs uppercase">Location</th>
               <th className="px-4 py-3 font-display text-xs uppercase">Seats</th>
               <th className="px-4 py-3 font-display text-xs uppercase">Status</th>
               <th className="px-4 py-3 font-display text-xs uppercase">Actions</th>
@@ -93,6 +100,20 @@ export default async function AdminSessionsPage() {
                   <td className="px-4 py-3 font-medium">{s.className}</td>
                   <td className="px-4 py-3">
                     {formatSessionDate(s.startsAt)}, {formatSessionTime(s.startsAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <form action={updateSessionLocationAction} className="flex items-center gap-2">
+                      <input type="hidden" name="sessionId" value={s.id} />
+                      <input
+                        name="location"
+                        defaultValue={s.location}
+                        required
+                        className="w-56 border border-ink/20 bg-paper px-2 py-1.5 text-sm focus:border-ink"
+                      />
+                      <button type="submit" className="text-xs uppercase tracking-wide text-blood hover:underline">
+                        Save
+                      </button>
+                    </form>
                   </td>
                   <td className="px-4 py-3">
                     {remaining} / {s.maxSeats}

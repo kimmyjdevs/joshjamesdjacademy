@@ -70,6 +70,20 @@ export async function createSessionAction(formData: FormData) {
   revalidatePath("/booking");
 }
 
+export async function updateSessionLocationAction(formData: FormData) {
+  await requireAdmin();
+  const sessionId = Number(formData.get("sessionId"));
+  const location = String(formData.get("location") || "").trim();
+  if (!location) return;
+
+  await db.update(sessions).set({ location }).where(eq(sessions.id, sessionId));
+  // Keep an already-synced calendar event's location current too.
+  await syncSessionToCalendar(sessionId);
+
+  revalidatePath("/admin/sessions");
+  revalidatePath("/booking");
+}
+
 export async function duplicateSessionAction(formData: FormData) {
   await requireAdmin();
   const sessionId = Number(formData.get("sessionId"));
