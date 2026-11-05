@@ -65,6 +65,20 @@ export default async function AdminDashboardPage({
     db.select({ count: sql<string>`count(*)` }).from(bookings).where(gte(bookings.createdAt, weekAgo)),
   ]);
 
+  // Active, currently-bookable classes with no future dates — invisible to students.
+  const activeClasses = await db.query.classTypes.findMany({ where: eq(classTypes.isActive, true) });
+  const classesWithDates = new Set(
+    (
+      await db
+        .selectDistinct({ classTypeId: sessions.classTypeId })
+        .from(sessions)
+        .where(and(eq(sessions.status, "scheduled"), gte(sessions.startsAt, now)))
+    ).map((r) => r.classTypeId),
+  );
+  const classesWithoutDates = activeClasses.filter(
+    (c) => !classesWithDates.has(c.id) && !(c.availableUntil && c.availableUntil < now),
+  );
+
   const heldMap = await getSeatsRemainingForSessions(upcomingSessionsRaw.map((s) => s.id));
   const upcomingSessions = upcomingSessionsRaw.map((s) => ({
     ...s,
@@ -74,6 +88,22 @@ export default async function AdminDashboardPage({
   return (
     <div>
       <h1 className="text-3xl">Dashboard</h1>
+
+      {classesWithoutDates.length > 0 && (
+        <section className="mt-6 border border-blood bg-blood/5 p-5">
+          <h2 className="font-display text-sm uppercase text-blood">Needs attention</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {classesWithoutDates.map((c) => (
+              <li key={c.id}>
+                ⚠ <strong>{c.name}</strong> has no upcoming dates, so students can&apos;t book it.{" "}
+                <Link href="/admin/sessions#schedules" className="text-blood underline">
+                  Add dates →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {searchParams.calendar === "connected" && (
         <p className="mt-4 border border-ink/10 bg-cloud px-4 py-3 text-sm">
@@ -193,7 +223,7 @@ export default async function AdminDashboardPage({
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatTile label="New enquiries (7 days)" value={Number(newEnquiriesRow[0]?.count ?? 0)} href="/admin/enquiries" />
-        <StatTile label="Upcoming sessions" value={Number(upcomingSessionsCountRow[0]?.count ?? 0)} href="/admin/sessions" />
+        <StatTile label="Upcoming dates" value={Number(upcomingSessionsCountRow[0]?.count ?? 0)} href="/admin/sessions" />
         <StatTile label="Bookings (7 days)" value={Number(bookingsThisWeekRow[0]?.count ?? 0)} href="/admin/bookings" />
       </div>
 

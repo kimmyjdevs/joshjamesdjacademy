@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { enquiries } from "@/db/schema";
 import { isRateLimited } from "@/lib/rate-limit";
+import { sendAdminEnquiryAlert } from "@/lib/email";
 
 const FORM_TYPES = ["general", "holiday_program", "1on1", "group_class", "corporate"] as const;
 
@@ -51,14 +52,24 @@ export async function POST(req: NextRequest) {
 
   const { name, email, phone, formType, experienceLevel, message } = parsed.data;
 
-  await db.insert(enquiries).values({
+  const enquiry = {
     name,
     email,
     phone: phone || null,
     formType: formType || "general",
     experienceLevel: experienceLevel || null,
     message,
-  });
+  };
+
+  await db.insert(enquiries).values(enquiry);
+
+  // The enquiry is already saved, so an email failure must not fail the
+  // visitor's submission — it's still visible in /admin/enquiries.
+  try {
+    await sendAdminEnquiryAlert(enquiry);
+  } catch (err) {
+    console.error("Failed to send enquiry alert email:", err);
+  }
 
   return NextResponse.json({ ok: true });
 }

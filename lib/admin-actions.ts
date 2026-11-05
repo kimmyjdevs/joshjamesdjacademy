@@ -5,8 +5,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { classTypes, sessions, bookings, enquiries } from "@/db/schema";
+import { classTypes, sessions, bookings, enquiries, weeklySchedules } from "@/db/schema";
 import { stripe } from "@/lib/stripe";
+import { isAllowedAdminEmail } from "@/lib/admin-auth";
+import {
+  brisbaneDateTime,
+  brisbaneToday,
+  addDays,
+  clearOpenScheduledSlots,
+  ensureScheduledSessions,
+} from "@/lib/schedules";
 import {
   syncSessionToCalendar,
   deleteCalendarEvent,
@@ -19,6 +27,11 @@ async function requireAdmin() {
   const { userId } = await auth();
   if (!userId) {
     throw new Error("Not authenticated");
+  }
+  // Signed in isn't enough — server actions can be called directly, so
+  // enforce the same allowlist the admin layout does.
+  if (!(await isAllowedAdminEmail())) {
+    throw new Error("Not authorized");
   }
 }
 
@@ -46,7 +59,9 @@ export async function createSessionAction(formData: FormData) {
   const repeat = String(formData.get("repeat") || "none");
   const occurrences = Math.min(Math.max(Number(formData.get("occurrences")) || 1, 1), 52);
 
-  const firstStartsAt = roundToNearestQuarterHour(new Date(`${date}T${time}:00`));
+  // Times are typed in Brisbane local time — the server itself runs on UTC,
+  // so parse with an explicit offset or 9am would be saved as 7pm.
+  const firstStartsAt = roundToNearestQuarterHour(brisbaneDateTime(date, time));
   const intervalDays = REPEAT_INTERVAL_DAYS[repeat] ?? 0;
   const count = intervalDays > 0 ? occurrences : 1;
 
@@ -164,8 +179,13 @@ function parseOptionalDate(value: FormDataEntryValue | null): Date | null {
 export async function createClassTypeAction(formData: FormData) {
   await requireAdmin();
 
-  const name = String(formData.get("name"));
-  const slug = String(formData.get("slug"));
+  const name = String(formData.get("name")).trim();
+  // Generated from the name (used in the booking page filter); add a short
+  // suffix if another class already uses it.
+  const baseSlug =
+    name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100) || "class";
+  const taken = await db.query.classTypes.findFirst({ where: eq(classTypes.slug, baseSlug) });
+  const slug = taken ? `${baseSlug}-${Date.now().toString(36).slice(-4)}` : baseSlug;
   const description = String(formData.get("description"));
   const level = String(formData.get("level"));
   const durationMinutes = Number(formData.get("durationMinutes"));
@@ -342,4 +362,96 @@ export async function getSessionRoster(sessionId: number) {
     where: eq(bookings.sessionId, sessionId),
     orderBy: (b, { asc }) => asc(b.customerName),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Weekly schedules ("Mon–Sat, every hour 10am–5pm, forever")
+// ---------------------------------------------------------------------------
+
+function isTime(v: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+}
+
+export async function createWeeklyScheduleAction(formData: FormData) {
+  await requireAdmin();
+
+  const classTypeId = Number(formData.get("classTypeId"));
+  const days = formData.getAll("days").map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+  const firstStartTime = String(formData.get("firstStartTime") || "");
+  const lastStartTime = String(formData.get("lastStartTime") || "") || firstStartTime;
+  const intervalMinutes = Number(formData.get("intervalMinutes"));
+  const durationMinutes = Number(formData.get("durationMinutes"));
+  const maxSeats = Number(formData.get("maxSeats"));
+  const location = String(formData.get("location") || "").trim();
+  const notes = String(formData.get("notes") || "").trim() || null;
+  const startDate = String(formData.get("startDate") || "") || brisbaneToday();
+  const endDate = String(formData.get("endDate") || "") || null;
+
+  const problems: string[] = [];
+  if (!classTypeId) problems.push("pick a class");
+  if (days.length === 0) problems.push("tick at least one day");
+  if (!isTime(firstStartTime) || !isTime(lastStartTime)) problems.push("enter the first and last start times");
+  else if (lastStartTime < firstStartTime) problems.push("the last start time is before the first");
+  if (!(intervalMinutes >= 15)) problems.push("time between sessions must be at least 15 minutes");
+  if (!(durationMinutes > 0)) problems.push("enter how long each session runs");
+  if (!(maxSeats >= 1)) problems.push("seats must be at least 1");
+  if (!location) problems.push("enter a location");
+  if (endDate && endDate < startDate) problems.push("the end date is before the start date");
+
+  if (problems.length) {
+    redirect(`/admin/sessions?scheduleError=${encodeURIComponent(problems.join(", "))}#schedules`);
+  }
+
+  await db.insert(weeklySchedules).values({
+    classTypeId,
+    daysOfWeek: [...new Set(days)].sort().join(","),
+    firstStartTime,
+    lastStartTime,
+    intervalMinutes,
+    durationMinutes,
+    maxSeats,
+    location,
+    notes,
+    startDate,
+    endDate,
+  });
+
+  await ensureScheduledSessions();
+
+  revalidatePath("/admin/sessions");
+  revalidatePath("/booking");
+  redirect("/admin/sessions?scheduleCreated=1#schedules");
+}
+
+export async function deleteWeeklyScheduleAction(formData: FormData) {
+  await requireAdmin();
+  const scheduleId = Number(formData.get("scheduleId"));
+
+  const { kept } = await clearOpenScheduledSlots({ scheduleId, from: new Date() });
+  // Remaining sessions (past, or with real bookings) keep existing on their
+  // own — the FK is ON DELETE SET NULL.
+  await db.delete(weeklySchedules).where(eq(weeklySchedules.id, scheduleId));
+
+  revalidatePath("/admin/sessions");
+  revalidatePath("/booking");
+  redirect(`/admin/sessions?scheduleRemoved=1&kept=${kept}#schedules`);
+}
+
+/** Day off: removes every open schedule slot across the given date range. */
+export async function blockOutDaysAction(formData: FormData) {
+  await requireAdmin();
+  const fromDate = String(formData.get("fromDate") || "");
+  const toDate = String(formData.get("toDate") || "") || fromDate;
+  if (!fromDate || toDate < fromDate) {
+    redirect("/admin/sessions?blockError=1#schedules");
+  }
+
+  const { removed, kept } = await clearOpenScheduledSlots({
+    from: brisbaneDateTime(fromDate, "00:00"),
+    to: brisbaneDateTime(addDays(toDate, 1), "00:00"),
+  });
+
+  revalidatePath("/admin/sessions");
+  revalidatePath("/booking");
+  redirect(`/admin/sessions?blocked=${removed}&kept=${kept}#schedules`);
 }

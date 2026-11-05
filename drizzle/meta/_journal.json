@@ -29,6 +29,13 @@
       "when": 1787892753292,
       "tag": "0003_happy_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793846515961,
+      "tag": "0004_weekly_schedules",
+      "breakpoints": true
     }
   ]
 }

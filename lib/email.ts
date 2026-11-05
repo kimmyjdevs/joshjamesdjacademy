@@ -50,6 +50,58 @@ export async function sendBookingConfirmationEmail(details: BookingEmailDetails)
   });
 }
 
+export interface EnquiryEmailDetails {
+  name: string;
+  email: string;
+  phone: string | null;
+  formType: string;
+  experienceLevel: string | null;
+  message: string;
+}
+
+const FORM_TYPE_LABELS: Record<string, string> = {
+  general: "General",
+  holiday_program: "School Holiday Program",
+  "1on1": "1-on-1 Coaching",
+  group_class: "Group Class",
+  corporate: "Corporate / Event",
+};
+
+export async function sendAdminEnquiryAlert(details: EnquiryEmailDetails) {
+  if (!resend) {
+    console.warn("RESEND_API_KEY not set — skipping admin enquiry alert.");
+    return;
+  }
+
+  const topic = FORM_TYPE_LABELS[details.formType] ?? details.formType;
+
+  const { error } = await resend.emails.send({
+    from: `${siteConfig.name} <${FROM_EMAIL}>`,
+    to: ADMIN_ALERT_EMAIL,
+    // Hitting "Reply" goes straight to the person who enquired.
+    replyTo: details.email,
+    subject: `New enquiry — ${details.name} (${topic})`,
+    text: [
+      `New enquiry from the website.`,
+      ``,
+      `Name: ${details.name}`,
+      `Email: ${details.email}`,
+      details.phone ? `Phone: ${details.phone}` : null,
+      `Enquiry about: ${topic}`,
+      details.experienceLevel ? `Experience: ${details.experienceLevel}` : null,
+      ``,
+      `Message:`,
+      details.message,
+      ``,
+      `Reply to this email to respond directly. All enquiries: ${siteConfig.url}/admin/enquiries`,
+    ]
+      .filter((line) => line !== null)
+      .join("\n"),
+  });
+
+  if (error) throw new Error(`Resend rejected enquiry alert: ${error.message}`);
+}
+
 export async function sendAdminBookingAlert(details: BookingEmailDetails) {
   if (!resend) {
     console.warn("RESEND_API_KEY not set — skipping admin booking alert.");

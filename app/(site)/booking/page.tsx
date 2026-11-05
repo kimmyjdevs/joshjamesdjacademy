@@ -5,6 +5,7 @@ import { classTypes, sessions } from "@/db/schema";
 import { getSeatsRemainingForSessions } from "@/lib/availability";
 import { BookingBrowser, type BookableSession } from "@/components/booking/booking-browser";
 import { siteConfig } from "@/lib/site";
+import { ensureScheduledSessions } from "@/lib/schedules";
 
 export const metadata: Metadata = {
   title: "Book a DJ Class in Brisbane",
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
 export const revalidate = 0;
 
 async function getBookableSessions(): Promise<BookableSession[]> {
+  // Rolls weekly schedules forward so there are always weeks of slots ahead.
+  await ensureScheduledSessions();
+
   const rows = await db
     .select({
       id: sessions.id,
@@ -65,7 +69,8 @@ export default async function BookingPage() {
     }),
   ]);
 
-  const jsonLd = bookableSessions.map((s) => ({
+  // Cap structured data — weekly schedules can produce hundreds of slots.
+  const jsonLd = bookableSessions.slice(0, 50).map((s) => ({
     "@context": "https://schema.org",
     "@type": "Event",
     name: s.className,

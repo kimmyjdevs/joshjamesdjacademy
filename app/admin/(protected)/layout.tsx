@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 
 const links = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/sessions", label: "Sessions" },
-  { href: "/admin/class-types", label: "Class Types" },
+  { href: "/admin/sessions", label: "Dates & Times" },
+  { href: "/admin/class-types", label: "Classes" },
   { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/enquiries", label: "Enquiries" },
 ];

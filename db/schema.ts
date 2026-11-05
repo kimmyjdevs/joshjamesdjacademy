@@ -6,6 +6,8 @@ import {
   timestamp,
   boolean,
   varchar,
+  date,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const classTypes = pgTable("class_types", {
@@ -32,11 +34,43 @@ export const classTypes = pgTable("class_types", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * A standing weekly timetable, e.g. "UpBeat, Mon–Sat, every hour from 10am,
+ * last start 5pm, no end date". Bookable sessions are generated from it on a
+ * rolling window (see lib/schedules.ts), so it effectively runs forever.
+ * All times are Brisbane local (no daylight saving, so a fixed +10:00).
+ */
+export const weeklySchedules = pgTable("weekly_schedules", {
+  id: serial("id").primaryKey(),
+  classTypeId: integer("class_type_id")
+    .notNull()
+    .references(() => classTypes.id),
+  // Comma-separated ISO-ish weekdays, 0 = Sunday … 6 = Saturday. e.g. "1,2,3,4,5,6"
+  daysOfWeek: varchar("days_of_week", { length: 20 }).notNull(),
+  firstStartTime: varchar("first_start_time", { length: 5 }).notNull(), // "10:00"
+  lastStartTime: varchar("last_start_time", { length: 5 }).notNull(), // "17:00"
+  // Gap between one slot's start and the next's (independent of duration).
+  intervalMinutes: integer("interval_minutes").notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  maxSeats: integer("max_seats").notNull(),
+  location: text("location").notNull(),
+  notes: text("notes"),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"), // null = runs forever
+  // Last Brisbane date slots have been generated for — lets generation be a
+  // cheap no-op on most page loads, and means a slot Josh deletes (day off)
+  // is never re-created.
+  generatedUntil: date("generated_until"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   classTypeId: integer("class_type_id")
     .notNull()
     .references(() => classTypes.id),
+  // Set when this session was generated from a weekly schedule.
+  scheduleId: integer("schedule_id").references(() => weeklySchedules.id, { onDelete: "set null" }),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   location: text("location").notNull(),
@@ -48,7 +82,10 @@ export const sessions = pgTable("sessions", {
   // creating a duplicate, and lets us skip sessions nobody's booked yet.
   googleCalendarEventId: text("google_calendar_event_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  // Makes schedule generation idempotent if two requests race.
+  uniqueIndex("sessions_schedule_slot_unique").on(t.scheduleId, t.startsAt),
+]);
 
 export const googleCalendarConnection = pgTable("google_calendar_connection", {
   id: serial("id").primaryKey(),

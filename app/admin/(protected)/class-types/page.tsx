@@ -1,8 +1,10 @@
-import { asc, sql } from "drizzle-orm";
+import Link from "next/link";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { classTypes, sessions } from "@/db/schema";
 import { createClassTypeAction, updateClassTypeAction, deleteClassTypeAction } from "@/lib/admin-actions";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { ensureScheduledSessions } from "@/lib/schedules";
 
 function toDateInputValue(date: Date | null) {
   if (!date) return "";
@@ -10,23 +12,38 @@ function toDateInputValue(date: Date | null) {
 }
 
 export default async function AdminClassTypesPage() {
-  const [types, sessionCountRows] = await Promise.all([
+  await ensureScheduledSessions();
+  const [types, sessionCountRows, upcomingRows] = await Promise.all([
     db.query.classTypes.findMany({ orderBy: asc(classTypes.sortOrder) }),
     db
       .select({ classTypeId: sessions.classTypeId, count: sql<string>`count(*)` })
       .from(sessions)
       .groupBy(sessions.classTypeId),
+    db
+      .select({ classTypeId: sessions.classTypeId, count: sql<string>`count(*)` })
+      .from(sessions)
+      .where(and(eq(sessions.status, "scheduled"), gte(sessions.startsAt, new Date())))
+      .groupBy(sessions.classTypeId),
   ]);
   const sessionCounts = new Map(sessionCountRows.map((r) => [r.classTypeId, Number(r.count)]));
+  const upcomingCounts = new Map(upcomingRows.map((r) => [r.classTypeId, Number(r.count)]));
 
   return (
     <div>
-      <h1 className="text-3xl">Class Types</h1>
-      <p className="mt-2 text-graphite">Price and duration changes only affect future checkouts.</p>
+      <h1 className="text-3xl">Classes</h1>
+      <p className="mt-2 max-w-3xl text-graphite">
+        This is what you offer: name, price, length and description. Students can only book a class once it has
+        dates, which you add under <Link href="/admin/sessions" className="text-blood hover:underline">Dates &amp; Times</Link>.
+        Price changes only affect new bookings.
+      </p>
 
       <div className="mt-8 space-y-6">
         {types.map((ct) => {
           const sessionCount = sessionCounts.get(ct.id) ?? 0;
+          const upcoming = upcomingCounts.get(ct.id) ?? 0;
+          const now = new Date();
+          const notYet = ct.availableFrom && ct.availableFrom > now;
+          const ended = ct.availableUntil && ct.availableUntil < now;
           return (
           <form
             key={ct.id}
@@ -47,6 +64,31 @@ export default async function AdminClassTypesPage() {
                 </label>
               </div>
             </div>
+
+            {!ct.isActive ? (
+              <p className="mt-3 border border-ink/10 bg-cloud px-4 py-2 text-sm text-graphite">
+                Hidden — &quot;Active&quot; is unticked, so this isn&apos;t on the booking page.
+              </p>
+            ) : ended ? (
+              <p className="mt-3 border border-blood bg-blood/5 px-4 py-2 text-sm text-blood">
+                Not bookable — the &quot;Bookable until&quot; date below has passed. Clear it or move it later.
+              </p>
+            ) : upcoming === 0 ? (
+              <p className="mt-3 border border-blood bg-blood/5 px-4 py-2 text-sm text-blood">
+                ⚠ No upcoming dates — students can&apos;t book this yet.{" "}
+                <Link href="/admin/sessions#schedules" className="font-medium underline">
+                  Add dates →
+                </Link>
+              </p>
+            ) : (
+              <p className="mt-3 border border-ink/10 bg-cloud px-4 py-2 text-sm">
+                ✓ {upcoming} upcoming date{upcoming === 1 ? "" : "s"} on the booking page
+                {notYet && ` (from ${ct.availableFrom!.toLocaleDateString("en-AU", { timeZone: "Australia/Brisbane" })})`}.{" "}
+                <Link href="/admin/sessions" className="text-blood hover:underline">
+                  Manage dates →
+                </Link>
+              </p>
+            )}
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
@@ -73,7 +115,7 @@ export default async function AdminClassTypesPage() {
                 />
               </div>
               <div>
-                <label className="mb-2 block font-display text-xs uppercase tracking-wide">Duration (min)</label>
+                <label className="mb-2 block font-display text-xs uppercase tracking-wide">Length (minutes)</label>
                 <input
                   name="durationMinutes"
                   type="number"
@@ -83,7 +125,7 @@ export default async function AdminClassTypesPage() {
                 />
               </div>
               <div>
-                <label className="mb-2 block font-display text-xs uppercase tracking-wide">Default max seats</label>
+                <label className="mb-2 block font-display text-xs uppercase tracking-wide">Students per session</label>
                 <input
                   name="maxSeatsDefault"
                   type="number"
@@ -116,9 +158,9 @@ export default async function AdminClassTypesPage() {
               </div>
             </div>
             <p className="mt-2 text-xs text-graphite">
-              Leave the dates blank for an always-on class. Set both for a seasonal offering (e.g. a school
-              holiday program) — it&apos;ll stop appearing on the booking page automatically once the end date
-              passes.
+              Leave both dates blank for a class that runs all year. Only set them for something seasonal (e.g. a
+              school holiday program) — the class disappears from the booking page once the end date passes, even if
+              it still has dates.
             </p>
 
             <div className="mt-4">
@@ -157,15 +199,11 @@ export default async function AdminClassTypesPage() {
       </div>
 
       <section className="mt-10 border border-ink/10 bg-paper p-6">
-        <h2 className="font-display text-lg uppercase">Add a Class Type</h2>
+        <h2 className="font-display text-lg uppercase">Add a new class</h2>
         <form action={createClassTypeAction} className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-2 block font-display text-xs uppercase tracking-wide">Name</label>
             <input name="name" required className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
-          </div>
-          <div>
-            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Slug</label>
-            <input name="slug" required placeholder="e.g. weekend-intensive" className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
           </div>
           <div>
             <label className="mb-2 block font-display text-xs uppercase tracking-wide">Level</label>
@@ -180,11 +218,11 @@ export default async function AdminClassTypesPage() {
             <input name="price" type="number" step="0.01" required className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
           </div>
           <div>
-            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Duration (min)</label>
+            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Length (minutes)</label>
             <input name="durationMinutes" type="number" required className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
           </div>
           <div>
-            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Default max seats</label>
+            <label className="mb-2 block font-display text-xs uppercase tracking-wide">Students per session</label>
             <input name="maxSeatsDefault" type="number" required className="w-full border border-ink/20 bg-paper px-4 py-3 text-sm focus:border-ink" />
           </div>
           <div>
@@ -207,7 +245,7 @@ export default async function AdminClassTypesPage() {
           </div>
           <div className="md:col-span-2">
             <button className="bg-ink px-6 py-3 font-display text-sm uppercase tracking-wide text-paper hover:bg-blood">
-              Create Class Type
+              Create class
             </button>
           </div>
         </form>

@@ -35,10 +35,20 @@ export function BookingBrowser({
   const [filter, setFilter] = useState<string>("all");
   const [activeSession, setActiveSession] = useState<BookableSession | null>(null);
 
+  const [chosenDay, setChosenDay] = useState<string | null>(null);
+
   const filtered = useMemo(
     () => (filter === "all" ? sessions : sessions.filter((s) => s.classSlug === filter)),
     [sessions, filter],
   );
+
+  // Weekly schedules can produce hundreds of slots — past a handful, switch
+  // from one big card grid to "pick a day, then a time".
+  const days = useMemo(() => groupByDay(filtered), [filtered]);
+  const useDayPicker = filtered.length > 12 && days.length > 1;
+  const firstOpenDay = days.find((d) => d.sessions.some((s) => s.seatsRemaining > 0))?.key ?? days[0]?.key;
+  const selectedDay = days.find((d) => d.key === chosenDay) ?? days.find((d) => d.key === firstOpenDay);
+  const visible = useDayPicker ? (selectedDay?.sessions ?? []) : filtered;
 
   return (
     <div>
@@ -63,8 +73,42 @@ export function BookingBrowser({
           </p>
         </div>
       ) : (
+        <>
+        {useDayPicker && (
+          <div className="mb-8">
+            <p className="mb-3 font-display text-sm uppercase tracking-widest">Pick a day</p>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2" role="group" aria-label="Pick a day">
+              {days.map((d) => {
+                const open = d.sessions.some((s) => s.seatsRemaining > 0);
+                const active = d.key === selectedDay?.key;
+                return (
+                  <button
+                    key={d.key}
+                    onClick={() => setChosenDay(d.key)}
+                    disabled={!open}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex min-w-[4.5rem] shrink-0 flex-col items-center border px-3 py-2 transition-colors",
+                      active ? "border-ink bg-ink text-paper" : "border-ink/20 hover:border-ink",
+                      !open && "cursor-not-allowed opacity-40 hover:border-ink/20",
+                    )}
+                  >
+                    <span className="font-display text-xs uppercase">{d.weekday}</span>
+                    <span className="font-display text-xl">{d.dayNum}</span>
+                    <span className="text-xs">{d.month}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedDay && (
+              <p className="mt-6 font-display text-sm uppercase tracking-widest">
+                Times on {selectedDay.weekday} {selectedDay.dayNum} {selectedDay.month}
+              </p>
+            )}
+          </div>
+        )}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((session) => (
+          {visible.map((session) => (
             <SessionCard
               key={session.id}
               session={session}
@@ -72,11 +116,34 @@ export function BookingBrowser({
             />
           ))}
         </div>
+        </>
       )}
 
       <SessionDetailPanel session={activeSession} onClose={() => setActiveSession(null)} />
     </div>
   );
+}
+
+const dayParts = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Brisbane",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+function groupByDay(list: BookableSession[]) {
+  const map = new Map<string, { key: string; weekday: string; dayNum: string; month: string; sessions: BookableSession[] }>();
+  for (const s of list) {
+    const parts = Object.fromEntries(dayParts.formatToParts(new Date(s.startsAt)).map((p) => [p.type, p.value]));
+    const key = `${parts.year}-${parts.month}-${parts.day}`;
+    if (!map.has(key)) {
+      map.set(key, { key, weekday: parts.weekday, dayNum: parts.day, month: parts.month, sessions: [] });
+    }
+    map.get(key)!.sessions.push(s);
+  }
+  // Input is already sorted by start time, so insertion order is chronological.
+  return [...map.values()];
 }
 
 function FilterChip({
