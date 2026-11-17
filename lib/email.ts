@@ -40,7 +40,6 @@ export async function sendBookingConfirmationEmail(details: BookingEmailDetails)
       ``,
       `Date: ${formatSessionDate(details.startsAt)}`,
       `Time: ${formatSessionTime(details.startsAt)}`,
-      `Location: ${details.location}`,
       `Seats: ${details.seats}`,
       amount ? `Amount paid: ${amount}` : null,
       ``,
