@@ -109,17 +109,22 @@ async function getAuthorizedClient() {
  * state changes — no-ops quietly if Calendar isn't configured/connected,
  * since this should never be the thing that breaks a real booking.
  */
-export async function syncSessionToCalendar(sessionId: number) {
+export type CalendarSyncResult =
+  | { status: "created" | "updated"; htmlLink: string | null }
+  | { status: "removed" | "not_connected" | "skipped" }
+  | { status: "failed"; error: string };
+
+export async function syncSessionToCalendar(sessionId: number): Promise<CalendarSyncResult> {
   try {
     const client = await getAuthorizedClient();
-    if (!client) return;
+    if (!client) return { status: "not_connected" };
     const connection = await getConnection();
     const calendarId = connection?.calendarId || "primary";
 
     const session = await db.query.sessions.findFirst({ where: eq(sessions.id, sessionId) });
-    if (!session) return;
+    if (!session) return { status: "skipped" };
     const classType = await db.query.classTypes.findFirst({ where: eq(classTypes.id, session.classTypeId) });
-    if (!classType) return;
+    if (!classType) return { status: "skipped" };
 
     const allBookings = await db.query.bookings.findMany({ where: eq(bookings.sessionId, sessionId) });
     const confirmed = allBookings.filter((b) => b.status === "confirmed");
@@ -129,8 +134,9 @@ export async function syncSessionToCalendar(sessionId: number) {
       // No paying customers (yet, or anymore) — don't clutter the calendar.
       if (session.googleCalendarEventId) {
         await deleteCalendarEvent(sessionId);
+        return { status: "removed" };
       }
-      return;
+      return { status: "skipped" };
     }
 
     const attendeeLines = confirmed
@@ -150,25 +156,37 @@ export async function syncSessionToCalendar(sessionId: number) {
       description,
       start: { dateTime: session.startsAt.toISOString() },
       end: { dateTime: session.endsAt.toISOString() },
+      // Phone/desktop notifications from Google Calendar itself — the day
+      // before and an hour before each booked session.
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: "popup", minutes: 24 * 60 },
+          { method: "popup", minutes: 60 },
+        ],
+      },
     };
 
     if (session.googleCalendarEventId) {
-      await calendar.events.update({
+      const updated = await calendar.events.update({
         calendarId,
         eventId: session.googleCalendarEventId,
         requestBody: eventBody,
       });
-    } else {
-      const created = await calendar.events.insert({ calendarId, requestBody: eventBody });
-      if (created.data.id) {
-        await db
-          .update(sessions)
-          .set({ googleCalendarEventId: created.data.id })
-          .where(eq(sessions.id, sessionId));
-      }
+      return { status: "updated", htmlLink: updated.data.htmlLink ?? null };
     }
+
+    const created = await calendar.events.insert({ calendarId, requestBody: eventBody });
+    if (created.data.id) {
+      await db
+        .update(sessions)
+        .set({ googleCalendarEventId: created.data.id })
+        .where(eq(sessions.id, sessionId));
+    }
+    return { status: "created", htmlLink: created.data.htmlLink ?? null };
   } catch (err) {
     console.error(`Google Calendar sync failed for session ${sessionId}:`, err);
+    return { status: "failed", error: err instanceof Error ? err.message : String(err) };
   }
 }
 

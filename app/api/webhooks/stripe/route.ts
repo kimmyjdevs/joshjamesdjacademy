@@ -70,7 +70,7 @@ async function handleCheckoutCompleted(checkoutSession: Stripe.Checkout.Session)
     })
     .where(eq(bookings.id, bookingId));
 
-  await syncSessionToCalendar(booking.sessionId);
+  const calendarResult = await syncSessionToCalendar(booking.sessionId);
 
   try {
     const session = await db.query.sessions.findFirst({ where: eq(sessions.id, booking.sessionId) });
@@ -89,7 +89,7 @@ async function handleCheckoutCompleted(checkoutSession: Stripe.Checkout.Session)
         amountPaidCents: checkoutSession.amount_total ?? null,
         currency: classType.currency,
       };
-      await Promise.all([sendBookingConfirmationEmail(emailDetails), sendAdminBookingAlert(emailDetails)]);
+      await Promise.all([sendBookingConfirmationEmail(emailDetails), sendAdminBookingAlert(emailDetails, calendarResult)]);
     }
   } catch (err) {
     console.error(`Booking ${bookingId} confirmed but email notification failed:`, err);

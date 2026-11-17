@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { formatCents, formatSessionDate, formatSessionTime } from "@/lib/utils";
 import { siteConfig } from "@/lib/site";
+import type { CalendarSyncResult } from "@/lib/google-calendar";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -103,7 +104,23 @@ export async function sendAdminEnquiryAlert(details: EnquiryEmailDetails) {
   if (error) throw new Error(`Resend rejected enquiry alert: ${error.message}`);
 }
 
-export async function sendAdminBookingAlert(details: BookingEmailDetails) {
+function calendarLine(calendar?: CalendarSyncResult) {
+  if (!calendar) return null;
+  switch (calendar.status) {
+    case "created":
+      return `📅 Added to your Google Calendar${calendar.htmlLink ? `: ${calendar.htmlLink}` : "."}`;
+    case "updated":
+      return `📅 Updated the existing event in your Google Calendar${calendar.htmlLink ? `: ${calendar.htmlLink}` : "."}`;
+    case "not_connected":
+      return `⚠ Not added to Google Calendar — no calendar is connected. Connect one at ${siteConfig.url}/admin`;
+    case "failed":
+      return `⚠ Couldn't add this to Google Calendar (${calendar.error}). Reconnect it at ${siteConfig.url}/admin`;
+    default:
+      return null;
+  }
+}
+
+export async function sendAdminBookingAlert(details: BookingEmailDetails, calendar?: CalendarSyncResult) {
   if (!resend) {
     console.warn("RESEND_API_KEY not set — skipping admin booking alert.");
     return;
@@ -115,10 +132,14 @@ export async function sendAdminBookingAlert(details: BookingEmailDetails) {
   await resend.emails.send({
     from: `${siteConfig.name} <${FROM_EMAIL}>`,
     to: ADMIN_ALERT_EMAIL,
-    subject: `New booking — ${details.className}`,
+    subject: `New booking — ${details.className}, ${formatSessionDate(details.startsAt)} ${formatSessionTime(details.startsAt)}${
+      calendar?.status === "created" ? " (added to your calendar)" : ""
+    }`,
     text: [
       `New booking just came in.`,
       ``,
+      calendarLine(calendar),
+      calendarLine(calendar) ? `` : null,
       `Class: ${details.className}`,
       `Date: ${formatSessionDate(details.startsAt)}`,
       `Time: ${formatSessionTime(details.startsAt)}`,
