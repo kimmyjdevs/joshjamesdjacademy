@@ -30,6 +30,8 @@ export async function sendBookingConfirmationEmail(details: BookingEmailDetails)
   await resend.emails.send({
     from: `${siteConfig.name} <${FROM_EMAIL}>`,
     to: details.customerEmail,
+    // bookings@ has no inbox — send student replies straight to Josh.
+    replyTo: ADMIN_ALERT_EMAIL,
     subject: `You're booked in — ${details.className}`,
     text: [
       `Hey ${details.customerName},`,
